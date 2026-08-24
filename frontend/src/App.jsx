@@ -2799,27 +2799,12 @@ function App() {
                   </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                <div style={{ marginBottom: '14px' }}>
                   <button 
                     onClick={snapWebcamPhoto}
-                    style={{ padding: '12px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                    <span>📸</span> Snap with Laptop Camera
+                    style={{ width: '100%', padding: '14px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
+                    <span>📸</span> Snap Live Photo with Laptop Camera
                   </button>
-
-                  <label style={{ padding: '12px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
-                    <span>📁</span> Upload Image from Laptop
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      style={{ display: 'none' }}
-                      onChange={async (e) => {
-                        if (e.target.files[0]) {
-                          const b64 = await fileToBase64(e.target.files[0])
-                          setCapturedPhotoPreview(b64)
-                        }
-                      }}
-                    />
-                  </label>
                 </div>
 
                 {/* 1-Click Fast Presets */}
