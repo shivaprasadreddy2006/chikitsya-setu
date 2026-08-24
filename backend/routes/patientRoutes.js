@@ -1,0 +1,22 @@
+const express = require('express');
+const router = express.Router();
+const { 
+    registerPatient, 
+    loginPatient, 
+    sendOtp, 
+    verifyOtpAndLogin 
+} = require('../controllers/patientController');
+
+// 1. O/P Desk: Register Patient
+router.post('/register', registerPatient);
+
+// 2. Patient: Standard Login (Patient ID + Password)
+router.post('/login', loginPatient);
+
+// 3. Patient: Forgot Password -> Send OTP to WhatsApp
+router.post('/send-otp', sendOtp);
+
+// 4. Patient: Verify OTP & Direct Login
+router.post('/verify-otp', verifyOtpAndLogin);
+
+module.exports = router;
