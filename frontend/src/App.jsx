@@ -14,6 +14,30 @@ const getSavedSession = () => {
   return null
 }
 
+// Helper: Format ISO Date string into beautiful Indian standard Date & Time
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return 'N/A'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
+const formatDateOnly = (dateStr) => {
+  if (!dateStr) return 'Today'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  })
+}
+
 function App() {
   const savedSession = getSavedSession()
 
@@ -46,9 +70,14 @@ function App() {
 
   // ---------- DOCTOR STATE ----------
   const [doctorsList, setDoctorsList] = useState([])
-  const [selectedDoctorId, setSelectedDoctorId] = useState('DR-GEN-01')
-  const [doctorQueue, setDoctorQueue] = useState([])
+  const [selectedDoctorId, setSelectedDoctorId] = useState(
+    savedSession?.role === 'doctor' && savedSession?.data?.doctorId ? savedSession.data.doctorId : 'DR-GEN-01'
+  )
+  const [doctorQueueData, setDoctorQueueData] = useState({ waitingQueue: [], allAssignedPatients: [], totalAssigned: 0, waitingCount: 0, dateStats: [] })
+  const [doctorViewFilter, setDoctorViewFilter] = useState('waiting') // 'waiting' | 'all' | 'date-wise'
+  const [selectedDateFilter, setSelectedDateFilter] = useState('ALL')
   const [activePatientForExam, setActivePatientForExam] = useState(null)
+  const [inspectedPatientFullFile, setInspectedPatientFullFile] = useState(null)
   const [doctorActionTab, setDoctorActionTab] = useState('lab') // 'lab' | 'rx' | 'referral' | 'admit'
   const [selectedTest, setSelectedTest] = useState('Complete Blood Count (CBC)')
   const [selectedLabRoom, setSelectedLabRoom] = useState('Pathology Lab 1 (Room 105)')
@@ -75,12 +104,21 @@ function App() {
   const [wardMessage, setWardMessage] = useState('')
 
   // ---------- O/P DESK STATE ----------
-  const [opForm, setOpForm] = useState({ name: '', age: '', gender: 'Male', phoneNumber: '' })
+  const [opForm, setOpForm] = useState({
+    name: '',
+    age: '',
+    gender: 'Male',
+    phoneNumber: '',
+    registrationDate: new Date().toISOString().slice(0, 16)
+  })
   const [opTicket, setOpTicket] = useState(null)
   const [opError, setOpError] = useState('')
 
   // ---------- ADMIN / OVERSIGHT STATE ----------
   const [hospitalStats, setHospitalStats] = useState(null)
+  const [hospitalAuditTrail, setHospitalAuditTrail] = useState(null)
+  const [auditFilterType, setAuditFilterType] = useState('ALL')
+  const [auditSearchQuery, setAuditSearchQuery] = useState('')
 
   // ---------- NOTIFICATION BANNER ----------
   const [whatsAppNotification, setWhatsAppNotification] = useState(null)
@@ -97,11 +135,16 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (activeView === 'doctor' && selectedDoctorId) fetchDoctorQueue(selectedDoctorId)
+    if (activeView === 'doctor' && selectedDoctorId) {
+      fetchDoctorQueue(selectedDoctorId)
+    }
     if (activeView === 'lab') fetchLabOrders()
     if (activeView === 'pharmacy') fetchPrescriptions()
     if (activeView === 'ward') fetchAdmissions()
-    if (activeView === 'admin') fetchHospitalStats()
+    if (activeView === 'admin') {
+      fetchHospitalStats()
+      fetchHospitalAuditTrail()
+    }
     if (activeView === 'patient' && currentUser?.role === 'patient' && currentUser.data?.patientId) {
       fetchPatientFullFile(currentUser.data.patientId)
     }
@@ -128,10 +171,17 @@ function App() {
     } catch (err) { console.error(err) }
   }
 
+  const fetchHospitalAuditTrail = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/hospital/audit-trail`)
+      setHospitalAuditTrail(res.data)
+    } catch (err) { console.error(err) }
+  }
+
   const fetchDoctorQueue = async (docId) => {
     try {
       const res = await axios.get(`${API_BASE}/doctors/${docId}/patients`)
-      setDoctorQueue(res.data)
+      setDoctorQueueData(res.data)
     } catch (err) { console.error(err) }
   }
 
@@ -163,11 +213,22 @@ function App() {
     } catch (err) { console.error(err) }
   }
 
+  const inspectPatientTimeline = async (patient) => {
+    setActivePatientForExam(patient)
+    try {
+      const res = await axios.get(`${API_BASE}/hospital/patient-file/${patient.patientId}`)
+      setInspectedPatientFullFile(res.data)
+    } catch (err) { console.error(err) }
+  }
+
   // ---------- PERSISTENT LOGIN HELPER ----------
   const persistLogin = (role, data) => {
     const session = { role, data }
     setCurrentUser(session)
     setActiveView(role)
+    if (role === 'doctor' && data?.doctorId) {
+      setSelectedDoctorId(data.doctorId)
+    }
     localStorage.setItem('chikitsya_session', JSON.stringify(session))
     setShowLoginModal(false)
   }
@@ -233,6 +294,9 @@ function App() {
   }
 
   const handleRoleSelectLogin = (role, data) => {
+    if (role === 'doctor' && data?.doctorId) {
+      setSelectedDoctorId(data.doctorId)
+    }
     persistLogin(role, data)
   }
 
@@ -245,6 +309,8 @@ function App() {
     setStaffLoginError('')
     setOtpSent(false)
     setPatientFullFile(null)
+    setActivePatientForExam(null)
+    setInspectedPatientFullFile(null)
     fetchPatientsList()
   }
 
@@ -257,7 +323,13 @@ function App() {
       const res = await axios.post(`${API_BASE}/patients/register`, opForm)
       setOpTicket(res.data)
       if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
-      setOpForm({ name: '', age: '', gender: 'Male', phoneNumber: '' })
+      setOpForm({
+        name: '',
+        age: '',
+        gender: 'Male',
+        phoneNumber: '',
+        registrationDate: new Date().toISOString().slice(0, 16)
+      })
       fetchHospitalStats()
       fetchPatientsList()
     } catch (err) {
@@ -277,9 +349,9 @@ function App() {
         labRoom: selectedLabRoom,
         notes: clinicalNotes
       })
-      setDoctorMessage(`✅ ${res.data.message}`)
-      setActivePatientForExam(null)
+      setDoctorMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchDoctorQueue(selectedDoctorId)
+      inspectPatientTimeline(activePatientForExam)
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
@@ -294,9 +366,9 @@ function App() {
         medicines: medArray,
         notes: clinicalNotes
       })
-      setDoctorMessage(`✅ ${res.data.message}`)
-      setActivePatientForExam(null)
+      setDoctorMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchDoctorQueue(selectedDoctorId)
+      inspectPatientTimeline(activePatientForExam)
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
@@ -311,9 +383,9 @@ function App() {
         toDepartment: referralDept,
         reason: referralReason
       })
-      setDoctorMessage(`✅ ${res.data.message}`)
-      setActivePatientForExam(null)
+      setDoctorMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchDoctorQueue(selectedDoctorId)
+      inspectPatientTimeline(activePatientForExam)
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
@@ -328,9 +400,22 @@ function App() {
         bedNumber: admitBed,
         diagnosis: clinicalNotes || 'Under Inpatient Treatment'
       })
-      setDoctorMessage(`✅ ${res.data.message}`)
-      setActivePatientForExam(null)
+      setDoctorMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchDoctorQueue(selectedDoctorId)
+      inspectPatientTimeline(activePatientForExam)
+    } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
+  }
+
+  const handleDoctorComplete = async () => {
+    if (!activePatientForExam) return
+    try {
+      const res = await axios.post(`${API_BASE}/doctors/complete`, {
+        doctorId: selectedDoctorId,
+        patientId: activePatientForExam.patientId
+      })
+      setDoctorMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
+      fetchDoctorQueue(selectedDoctorId)
+      inspectPatientTimeline(activePatientForExam)
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
@@ -338,7 +423,7 @@ function App() {
   const handleLabCollect = async (reqId) => {
     try {
       const res = await axios.put(`${API_BASE}/labs/collect/${reqId}`)
-      setLabMessage(`✅ ${res.data.message}`)
+      setLabMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchLabOrders()
     } catch (err) { setLabMessage(`⚠️ ${err.message}`) }
   }
@@ -347,7 +432,7 @@ function App() {
     try {
       const findings = labFindingsInput[reqId] || 'Normal biological reference intervals maintained.'
       const res = await axios.put(`${API_BASE}/labs/publish/${reqId}`, { findings })
-      setLabMessage(`✅ ${res.data.message}`)
+      setLabMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchLabOrders()
     } catch (err) { setLabMessage(`⚠️ ${err.message}`) }
   }
@@ -356,7 +441,7 @@ function App() {
   const handleDispense = async (rxId) => {
     try {
       const res = await axios.put(`${API_BASE}/pharmacy/dispense/${rxId}`)
-      setPharmacyMessage(`✅ ${res.data.message}`)
+      setPharmacyMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchPrescriptions()
     } catch (err) { setPharmacyMessage(`⚠️ ${err.message}`) }
   }
@@ -365,7 +450,7 @@ function App() {
   const handleLogResource = async (admissionId) => {
     try {
       const res = await axios.post(`${API_BASE}/admissions/resource/${admissionId}`, { itemName: resourceItemName })
-      setWardMessage(`✅ ${res.data.message}`)
+      setWardMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchAdmissions()
     } catch (err) { setWardMessage(`⚠️ ${err.message}`) }
   }
@@ -373,10 +458,31 @@ function App() {
   const handleDischarge = async (admissionId) => {
     try {
       const res = await axios.put(`${API_BASE}/admissions/discharge/${admissionId}`, { dischargeSummary: 'Vitals stable. Home medications advised.' })
-      setWardMessage(`✅ ${res.data.message}`)
+      setWardMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchAdmissions()
     } catch (err) { setWardMessage(`⚠️ ${err.message}`) }
   }
+
+  // Filter Doctor Patients based on view (waiting queue, all assigned, date-wise)
+  const displayedDoctorPatients = (() => {
+    if (doctorViewFilter === 'waiting') return doctorQueueData.waitingQueue || []
+    if (doctorViewFilter === 'date-wise' && selectedDateFilter !== 'ALL') {
+      const group = (doctorQueueData.dateStats || []).find(d => d.date === selectedDateFilter)
+      return group ? group.patients : []
+    }
+    return doctorQueueData.allAssignedPatients || []
+  })()
+
+  // Filter Admin Audit Trail
+  const filteredAuditLogs = (hospitalAuditTrail?.allLogs || []).filter(log => {
+    const matchesType = auditFilterType === 'ALL' || log.type.startsWith(auditFilterType)
+    const matchesSearch = !auditSearchQuery || 
+      log.title.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+      log.details.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
+      (log.patientId && log.patientId.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
+      (log.actor && log.actor.toLowerCase().includes(auditSearchQuery.toLowerCase()))
+    return matchesType && matchesSearch
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'Segoe UI, Arial, sans-serif', margin: 0, backgroundColor: '#f8fafc', color: '#0f172a' }}>
@@ -573,12 +679,16 @@ function App() {
                 <h2 style={{ margin: '4px 0 2px 0', color: '#0f172a' }}>{currentUser.data.name}</h2>
                 <span style={{ fontSize: '13px', color: '#64748b' }}>Patient ID: <strong>{currentUser.data.patientId}</strong> | WhatsApp: +91 {currentUser.data.phoneNumber}</span>
               </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Registered On:</span>
+                <strong style={{ fontSize: '13px', color: '#0f172a' }}>{formatDateTime(currentUser.data.createdAt)}</strong>
+              </div>
             </div>
 
             {/* Sub-tab Navigation */}
             <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '24px' }}>
               <button onClick={() => setPatientTab('overview')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: patientTab === 'overview' ? '#0f172a' : '#f1f5f9', color: patientTab === 'overview' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-                📍 Live Journey Status
+                📍 Live Journey Timeline
               </button>
               <button onClick={() => setPatientTab('labs')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: patientTab === 'labs' ? '#0f172a' : '#f1f5f9', color: patientTab === 'labs' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
                 🧪 Lab Reports ({patientFullFile?.labRequests?.length || 0})
@@ -591,9 +701,10 @@ function App() {
               </button>
             </div>
 
-            {/* TAB: OVERVIEW & LIVE JOURNEY TRACKING */}
+            {/* TAB: OVERVIEW & COMPLETE CHRONOLOGICAL JOURNEY TIMELINE */}
             {patientTab === 'overview' && (
               <div>
+                {/* Current Action Banner */}
                 <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
                   <span style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 'bold' }}>Current Action Required</span>
                   <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb', marginTop: '4px' }}>
@@ -606,7 +717,8 @@ function App() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+                {/* Assigned Doctor & Location Card */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
                   <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>Assigned Physician</div>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', marginTop: '2px' }}>{patientFullFile?.doctor?.name || currentUser.data.assignedDoctor?.name || 'Dr. Ramesh Sharma'}</div>
@@ -615,24 +727,39 @@ function App() {
                   <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>Physical Location</div>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#d97706', marginTop: '2px' }}>OPD Block A - Room 102</div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>Ground Floor, Wing 1</div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>Ground Floor, Wing 1 (Follow Green Floor Signs)</div>
                   </div>
                 </div>
 
-                {/* Visual Corridor Path */}
-                <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block', marginBottom: '12px' }}>🧭 Physical Route Path (Gandhi Hospital)</strong>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '6px', fontSize: '13px' }}>
-                    <span style={{ padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '6px', fontWeight: '600' }}>Entrance Gate</span>
-                    <span>➔</span>
-                    <span style={{ padding: '6px 12px', backgroundColor: '#dbeafe', color: '#1e40af', borderRadius: '6px', fontWeight: 'bold' }}>OPD Block A</span>
-                    <span>➔</span>
-                    <span style={{ padding: '6px 12px', backgroundColor: '#fef3c7', color: '#92400e', borderRadius: '6px', fontWeight: 'bold' }}>Room 102 (Dr. Sharma)</span>
-                    <span>➔</span>
-                    <span style={{ padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '6px' }}>Room 105 (Lab)</span>
-                    <span>➔</span>
-                    <span style={{ padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '6px' }}>Counter 3 (Pharmacy)</span>
-                  </div>
+                {/* Live Chronological Journey Timeline with Date & Time */}
+                <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', padding: '24px', borderRadius: '12px' }}>
+                  <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', color: '#0f172a' }}>
+                    📅 Complete Patient Journey & Timestamped Audit Trail
+                  </h3>
+
+                  {patientFullFile?.timeline?.length === 0 ? (
+                    <p style={{ color: '#94a3b8' }}>No journey events logged yet.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {patientFullFile?.timeline?.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: '14px', alignItems: 'flex-start', paddingBottom: '14px', borderBottom: idx !== patientFullFile.timeline.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+                          <div style={{ fontSize: '20px', width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {item.icon}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                              <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.stage}</strong>
+                              <span style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '6px' }}>
+                                🕒 {formatDateTime(item.timestamp)}
+                              </span>
+                            </div>
+                            <p style={{ margin: '2px 0 4px 0', fontSize: '13px', color: '#475569', lineHeight: '1.4' }}>{item.details}</p>
+                            <span style={{ fontSize: '11px', color: '#64748b' }}>Logged by: <strong>{item.performedBy}</strong></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -648,15 +775,23 @@ function App() {
                     {patientFullFile?.labRequests?.map(lab => (
                       <div key={lab._id} style={{ border: '1px solid #e2e8f0', padding: '18px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <strong style={{ fontSize: '16px', color: '#0f172a' }}>{lab.testName}</strong>
+                          <div>
+                            <strong style={{ fontSize: '16px', color: '#0f172a' }}>{lab.testName}</strong>
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                              Ordered on: <strong>{formatDateTime(lab.createdAt)}</strong> | Location: {lab.labRoom}
+                            </div>
+                          </div>
                           <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: lab.status === 'REPORT_READY' ? '#dcfce7' : '#fef3c7', color: lab.status === 'REPORT_READY' ? '#15803d' : '#b45309' }}>
                             {lab.status === 'REPORT_READY' ? '✅ Report Published' : lab.status === 'SAMPLE_COLLECTED' ? '🧪 Sample in Analysis' : '⏳ Sample Pending'}
                           </span>
                         </div>
-                        <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>Location: {lab.labRoom}</div>
+
                         {lab.findings && (
                           <div style={{ marginTop: '10px', backgroundColor: 'white', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                             <strong>Clinical Findings:</strong> {lab.findings}
+                            <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px' }}>
+                              🕒 Published Timestamp: {formatDateTime(lab.updatedAt || lab.completedAt)}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -677,15 +812,25 @@ function App() {
                     {patientFullFile?.prescriptions?.map(rx => (
                       <div key={rx._id} style={{ border: '1px solid #e2e8f0', padding: '18px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                          <span style={{ fontSize: '13px', color: '#64748b' }}>Status: <strong>{rx.status}</strong></span>
+                          <span style={{ fontSize: '13px', color: '#64748b' }}>
+                            Prescribed on: <strong>{formatDateTime(rx.createdAt)}</strong>
+                          </span>
+                          <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: rx.status === 'DISPENSED' ? '#dcfce7' : '#fef3c7', color: rx.status === 'DISPENSED' ? '#15803d' : '#b45309' }}>
+                            {rx.status}
+                          </span>
                         </div>
                         <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px' }}>
                           {rx.medicines.map((m, idx) => (
                             <li key={idx} style={{ marginBottom: '6px' }}>
-                              <strong>{m.name}</strong> - {m.dosage} ({m.durationDays} days) {m.isDispensed && '✅ [Dispensed by Pharmacy]'}
+                              <strong>{m.name}</strong> - {m.dosage} ({m.durationDays} days) {m.isDispensed && '✅ [Dispensed at Pharmacy]'}
                             </li>
                           ))}
                         </ul>
+                        {rx.dispensedAt && (
+                          <div style={{ marginTop: '8px', fontSize: '12px', color: '#16a34a' }}>
+                            🕒 Dispensed Timestamp: {formatDateTime(rx.dispensedAt)}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -703,6 +848,7 @@ function App() {
                       <div>
                         <strong>Ward: {patientFullFile.admission.wardType}</strong>
                         <div style={{ fontSize: '13px', color: '#64748b' }}>Bed Allocation: {patientFullFile.admission.bedNumber}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b' }}>Admitted: {formatDateTime(patientFullFile.admission.admittedAt || patientFullFile.admission.createdAt)}</div>
                       </div>
                       <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#dcfce7', color: '#15803d' }}>
                         {patientFullFile.admission.status}
@@ -712,8 +858,8 @@ function App() {
                     <h4 style={{ margin: '14px 0 8px 0', fontSize: '14px', color: '#334155' }}>Items & Consumables Logged (Zero Leakage):</h4>
                     <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#475569' }}>
                       {patientFullFile.admission.resourcesAllocated?.map((res, i) => (
-                        <li key={i} style={{ marginBottom: '4px' }}>
-                          {res.itemName} (Qty: {res.quantity}) - Logged by {res.loggedByStaff}
+                        <li key={i} style={{ marginBottom: '6px' }}>
+                          <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by {res.loggedByStaff} • 🕒 {formatDateTime(res.loggedAt)}
                         </li>
                       ))}
                     </ul>
@@ -729,16 +875,28 @@ function App() {
 
         {/* 3. DOCTOR STATION */}
         {activeView === 'doctor' && currentUser?.role === 'doctor' && (
-          <div style={{ width: '100%', maxWidth: '960px' }}>
-            <div style={{ backgroundColor: 'white', padding: '20px 24px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ width: '100%', maxWidth: '1040px' }}>
+            
+            {/* Header & Doctor Switcher */}
+            <div style={{ backgroundColor: 'white', padding: '20px 24px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
               <div>
                 <span style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 'bold' }}>Physician Station</span>
                 <h2 style={{ margin: '2px 0 0 0', color: '#0f172a' }}>{currentUser.data.name} ({currentUser.data.department})</h2>
+                <span style={{ fontSize: '12px', color: '#2563eb' }}>ID: <strong>{selectedDoctorId}</strong> | Physical Room: 102 (OPD Block A)</span>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '600' }}>Switch Doctor:</label>
-                <select style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }} value={selectedDoctorId} onChange={e => { setSelectedDoctorId(e.target.value); setActivePatientForExam(null) }}>
+                <select
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                  value={selectedDoctorId}
+                  onChange={e => {
+                    const doc = doctorsList.find(d => d.doctorId === e.target.value)
+                    if (doc) persistLogin('doctor', doc)
+                    setSelectedDoctorId(e.target.value)
+                    setActivePatientForExam(null)
+                    setInspectedPatientFullFile(null)
+                  }}>
                   {doctorsList.map(d => (
                     <option key={d.doctorId} value={d.doctorId}>{d.name} ({d.department})</option>
                   ))}
@@ -746,42 +904,192 @@ function App() {
               </div>
             </div>
 
+            {/* Date-wise Summary Stats Banner */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+              <div style={{ backgroundColor: 'white', padding: '16px 20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Active Waiting Queue</span>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2563eb', marginTop: '2px' }}>{doctorQueueData.waitingCount || 0}</div>
+                <span style={{ fontSize: '11px', color: '#16a34a' }}>Patients awaiting examination</span>
+              </div>
+
+              <div style={{ backgroundColor: 'white', padding: '16px 20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Total Assigned Patients</span>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0f172a', marginTop: '2px' }}>{doctorQueueData.totalAssigned || 0}</div>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>Cumulative registrations</span>
+              </div>
+
+              <div style={{ backgroundColor: 'white', padding: '16px 20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Dates Active</span>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#16a34a', marginTop: '2px' }}>{doctorQueueData.dateStats?.length || 0}</div>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>Date-wise patient records</span>
+              </div>
+            </div>
+
             {doctorMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px', border: '1px solid #bbf7d0', fontWeight: '600' }}>{doctorMessage}</div>}
 
+            {/* Doctor View Controls (Queue Filter & Date Tabs) */}
+            <div style={{ backgroundColor: 'white', padding: '16px 20px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setDoctorViewFilter('waiting')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: doctorViewFilter === 'waiting' ? '#0f172a' : '#f1f5f9',
+                    color: doctorViewFilter === 'waiting' ? 'white' : '#475569',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}>
+                  ⏳ Active Waiting Queue ({doctorQueueData.waitingCount || 0})
+                </button>
+
+                <button
+                  onClick={() => setDoctorViewFilter('all')}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    backgroundColor: doctorViewFilter === 'all' ? '#0f172a' : '#f1f5f9',
+                    color: doctorViewFilter === 'all' ? 'white' : '#475569',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}>
+                  📋 All Assigned Patients ({doctorQueueData.totalAssigned || 0})
+                </button>
+              </div>
+
+              {/* Date Filter Dropdown */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b' }}>📅 Date-wise Breakdown:</label>
+                <select
+                  style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  value={selectedDateFilter}
+                  onChange={e => {
+                    setSelectedDateFilter(e.target.value)
+                    setDoctorViewFilter('date-wise')
+                  }}>
+                  <option value="ALL">All Dates</option>
+                  {(doctorQueueData.dateStats || []).map(ds => (
+                    <option key={ds.date} value={ds.date}>{ds.date} ({ds.total} patients)</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Queue & Examination Workspace */}
             <div style={{ display: 'grid', gridTemplateColumns: activePatientForExam ? '1fr 1.3fr' : '1fr', gap: '24px' }}>
+              
+              {/* Left Column: Patient List with Timestamps */}
               <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
-                <h3 style={{ margin: '0 0 16px 0', color: '#0f172a' }}>Patient Queue ({doctorQueue.length})</h3>
-                {doctorQueue.length === 0 ? <p style={{ color: '#94a3b8' }}>Queue is empty.</p> : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {doctorQueue.map((p, i) => (
-                      <div key={p._id} style={{ border: activePatientForExam?.patientId === p.patientId ? '2px solid #2563eb' : '1px solid #e2e8f0', padding: '14px', borderRadius: '8px', backgroundColor: activePatientForExam?.patientId === p.patientId ? '#eff6ff' : '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h3 style={{ margin: 0, color: '#0f172a' }}>
+                    {doctorViewFilter === 'waiting' && `⏳ Patients in Waiting Queue (${displayedDoctorPatients.length})`}
+                    {doctorViewFilter === 'all' && `📋 All Patients Assigned (${displayedDoctorPatients.length})`}
+                    {doctorViewFilter === 'date-wise' && `📅 Patients on ${selectedDateFilter} (${displayedDoctorPatients.length})`}
+                  </h3>
+                </div>
+
+                {displayedDoctorPatients.length === 0 ? (
+                  <p style={{ color: '#94a3b8' }}>No patients found for this view.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '600px', overflowY: 'auto' }}>
+                    {displayedDoctorPatients.map((p, i) => (
+                      <div
+                        key={p.patientId}
+                        onClick={() => inspectPatientTimeline(p)}
+                        style={{
+                          border: activePatientForExam?.patientId === p.patientId ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                          padding: '14px',
+                          borderRadius: '8px',
+                          backgroundColor: activePatientForExam?.patientId === p.patientId ? '#eff6ff' : '#f8fafc',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          cursor: 'pointer'
+                        }}>
                         <div>
                           <strong>#{i + 1} {p.name}</strong>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>{p.patientId} | {p.age}y {p.gender}</div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                            {p.patientId} | {p.age}y {p.gender}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px' }}>
+                            🕒 Reg: {formatDateTime(p.createdAt)}
+                          </div>
                         </div>
-                        <button onClick={() => setActivePatientForExam(p)} style={{ padding: '6px 14px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
-                          Examine ➔
-                        </button>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            backgroundColor: p.currentStatus === 'WAITING_FOR_DOCTOR' ? '#dbeafe' : p.currentStatus === 'IN_LAB' ? '#fef3c7' : '#dcfce7',
+                            color: p.currentStatus === 'WAITING_FOR_DOCTOR' ? '#1e40af' : p.currentStatus === 'IN_LAB' ? '#92400e' : '#15803d'
+                          }}>
+                            {p.currentStatus.replace(/_/g, ' ')}
+                          </span>
+                          <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                            Click to View File ➔
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
+              {/* Right Column: Active Patient Examination & Complete Journey Timeline */}
               {activePatientForExam && (
                 <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ margin: 0, color: '#0f172a' }}>Examining: {activePatientForExam.name}</h3>
-                    <button onClick={() => setActivePatientForExam(null)} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer' }}>✕</button>
+                  
+                  {/* Patient Header */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '16px' }}>
+                    <div>
+                      <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold', textTransform: 'uppercase' }}>Active File</span>
+                      <h3 style={{ margin: '2px 0 0 0', color: '#0f172a' }}>{activePatientForExam.name} ({activePatientForExam.patientId})</h3>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        {activePatientForExam.age}y {activePatientForExam.gender} • Reg: {formatDateTime(activePatientForExam.createdAt)}
+                      </span>
+                    </div>
+
+                    <button onClick={() => { setActivePatientForExam(null); setInspectedPatientFullFile(null); }} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '18px' }}>✕</button>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '6px', marginBottom: '18px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
-                    <button onClick={() => setDoctorActionTab('lab')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'lab' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'lab' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>Order Lab</button>
-                    <button onClick={() => setDoctorActionTab('rx')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'rx' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'rx' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>Prescribe</button>
-                    <button onClick={() => setDoctorActionTab('referral')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'referral' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'referral' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>Referral</button>
-                    <button onClick={() => setDoctorActionTab('admit')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'admit' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'admit' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>Admit Bed</button>
+                  {/* Complete Live Journey Timeline of Clicked Patient */}
+                  <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px', maxHeight: '200px', overflowY: 'auto' }}>
+                    <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block', marginBottom: '10px' }}>
+                      🕒 Patient Live Journey & Activity Log:
+                    </strong>
+
+                    {inspectedPatientFullFile?.timeline?.length === 0 ? (
+                      <p style={{ fontSize: '12px', color: '#94a3b8' }}>Loading timeline...</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {inspectedPatientFullFile?.timeline?.map((evt, idx) => (
+                          <div key={idx} style={{ display: 'flex', gap: '8px', fontSize: '12px' }}>
+                            <span>{evt.icon}</span>
+                            <div style={{ flex: 1 }}>
+                              <strong>{evt.stage}</strong> - {evt.details}
+                              <span style={{ color: '#2563eb', marginLeft: '6px', fontWeight: '600' }}>({formatDateTime(evt.timestamp)})</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
+                  {/* Doctor Clinical Actions Tab Bar */}
+                  <div style={{ display: 'flex', gap: '6px', marginBottom: '18px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', flexWrap: 'wrap' }}>
+                    <button onClick={() => setDoctorActionTab('lab')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'lab' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'lab' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>🧪 Order Lab</button>
+                    <button onClick={() => setDoctorActionTab('rx')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'rx' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'rx' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>💊 Prescribe</button>
+                    <button onClick={() => setDoctorActionTab('referral')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'referral' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'referral' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>🔄 Referral</button>
+                    <button onClick={() => setDoctorActionTab('admit')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'admit' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'admit' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>🛏️ Admit Bed</button>
+                  </div>
+
+                  {/* ACTION 1: ORDER LAB */}
                   {doctorActionTab === 'lab' && (
                     <form onSubmit={handleDoctorOrderLab}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Diagnostic Test:</label>
@@ -798,6 +1106,7 @@ function App() {
                     </form>
                   )}
 
+                  {/* ACTION 2: PRESCRIBE */}
                   {doctorActionTab === 'rx' && (
                     <form onSubmit={handleDoctorPrescribe}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Medicines (Comma Separated):</label>
@@ -808,6 +1117,7 @@ function App() {
                     </form>
                   )}
 
+                  {/* ACTION 3: REFERRAL */}
                   {doctorActionTab === 'referral' && (
                     <form onSubmit={handleDoctorReferral}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Refer to Specialty:</label>
@@ -824,6 +1134,7 @@ function App() {
                     </form>
                   )}
 
+                  {/* ACTION 4: ADMIT */}
                   {doctorActionTab === 'admit' && (
                     <form onSubmit={handleDoctorAdmit}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Ward Selection:</label>
@@ -838,6 +1149,12 @@ function App() {
                       </button>
                     </form>
                   )}
+
+                  {/* Complete Consultation Button */}
+                  <button onClick={handleDoctorComplete} style={{ width: '100%', marginTop: '12px', padding: '10px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+                    ✅ Mark Checkup Complete & Discharge Outpatient
+                  </button>
+
                 </div>
               )}
             </div>
@@ -859,24 +1176,38 @@ function App() {
                     <div>
                       <strong style={{ fontSize: '16px', color: '#0f172a' }}>{order.testName}</strong>
                       <div style={{ fontSize: '13px', color: '#64748b' }}>Patient: {order.patientId} | Room: {order.labRoom}</div>
+                      <div style={{ fontSize: '12px', color: '#2563eb', marginTop: '2px' }}>
+                        🕒 Ordered: {formatDateTime(order.createdAt)}
+                      </div>
                     </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: order.status === 'REPORT_READY' ? '#dcfce7' : '#fef3c7', color: order.status === 'REPORT_READY' ? '#15803d' : '#b45309' }}>
                       {order.status}
                     </span>
                   </div>
 
-                  {order.status === 'PENDING_SAMPLE' && (
+                  {order.status === 'PENDING' && (
                     <button onClick={() => handleLabCollect(order._id)} style={{ padding: '8px 16px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
                       🧪 Collect Blood/Fluid Sample ➔
                     </button>
                   )}
 
                   {order.status === 'SAMPLE_COLLECTED' && (
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <input type="text" placeholder="Enter clinical finding..." style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} onChange={e => setLabFindingsInput({...labFindingsInput, [order._id]: e.target.value})} />
-                      <button onClick={() => handleLabPublish(order._id)} style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                        Publish to Patient Portal ➔
-                      </button>
+                    <div>
+                      <div style={{ fontSize: '12px', color: '#15803d', marginBottom: '6px' }}>
+                        Sample Collected at: {formatDateTime(order.sampleCollectedAt || order.updatedAt)}
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <input type="text" placeholder="Enter clinical finding..." style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} onChange={e => setLabFindingsInput({...labFindingsInput, [order._id]: e.target.value})} />
+                        <button onClick={() => handleLabPublish(order._id)} style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                          Publish to Patient Portal ➔
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {order.status === 'REPORT_READY' && order.findings && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#166534', backgroundColor: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                      <strong>Published Finding:</strong> {order.findings} (Published: {formatDateTime(order.updatedAt)})
                     </div>
                   )}
                 </div>
@@ -897,7 +1228,10 @@ function App() {
               {prescriptions.map(rx => (
                 <div key={rx._id} style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <strong style={{ fontSize: '16px', color: '#0f172a' }}>Patient: {rx.patientId}</strong>
+                    <div>
+                      <strong style={{ fontSize: '16px', color: '#0f172a' }}>Patient: {rx.patientId}</strong>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>Doctor: {rx.doctorId} • Prescribed: {formatDateTime(rx.createdAt)}</div>
+                    </div>
                     <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: rx.status === 'DISPENSED' ? '#dcfce7' : '#fef3c7', color: rx.status === 'DISPENSED' ? '#15803d' : '#b45309' }}>
                       {rx.status}
                     </span>
@@ -909,10 +1243,14 @@ function App() {
                     ))}
                   </ul>
 
-                  {rx.status !== 'DISPENSED' && (
+                  {rx.status !== 'DISPENSED' ? (
                     <button onClick={() => handleDispense(rx._id)} style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
                       Dispense & Log Digitally ➔
                     </button>
+                  ) : (
+                    <div style={{ fontSize: '12px', color: '#15803d' }}>
+                      ✅ Dispensed on: {formatDateTime(rx.dispensedAt || rx.updatedAt)}
+                    </div>
                   )}
                 </div>
               ))}
@@ -935,6 +1273,7 @@ function App() {
                     <div>
                       <strong style={{ fontSize: '16px', color: '#0f172a' }}>Patient: {adm.patientId}</strong>
                       <div style={{ fontSize: '13px', color: '#64748b' }}>{adm.wardType} - {adm.bedNumber}</div>
+                      <div style={{ fontSize: '12px', color: '#2563eb' }}>Admitted: {formatDateTime(adm.admittedAt || adm.createdAt)}</div>
                     </div>
                     <button onClick={() => handleDischarge(adm._id)} style={{ padding: '6px 14px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
                       Discharge Patient ➔
@@ -944,8 +1283,8 @@ function App() {
                   <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
                     <strong style={{ fontSize: '13px', color: '#334155' }}>Items & Consumables Logged:</strong>
                     <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13px', color: '#64748b' }}>
-                      {adm.resourcesAllocated.map((res, i) => (
-                        <li key={i}>{res.itemName} (Qty: {res.quantity}) - by {res.loggedByStaff}</li>
+                      {adm.resourcesAllocated?.map((res, i) => (
+                        <li key={i}>{res.itemName} (Qty: {res.quantity}) - by {res.loggedByStaff} • 🕒 {formatDateTime(res.loggedAt)}</li>
                       ))}
                     </ul>
                   </div>
@@ -969,7 +1308,7 @@ function App() {
               <h2 style={{ margin: 0, color: '#0f172a' }}>🎫 O/P Reception Registration</h2>
               <span style={{ fontSize: '12px', backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>Authenticated Staff</span>
             </div>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Register new outpatients and dispatch credentials directly via WhatsApp.</p>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Register new outpatients with timestamp and dispatch credentials directly via WhatsApp.</p>
 
             <form onSubmit={handleOpRegister}>
               <div style={{ marginBottom: '16px' }}>
@@ -992,9 +1331,14 @@ function App() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>WhatsApp Mobile Number (10 Digits)</label>
                 <input required type="tel" placeholder="e.g. 9876543210" style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opForm.phoneNumber} onChange={e => setOpForm({...opForm, phoneNumber: e.target.value})} />
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>📅 Registration Date & Time</label>
+                <input required type="datetime-local" style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opForm.registrationDate} onChange={e => setOpForm({...opForm, registrationDate: e.target.value})} />
               </div>
 
               <button type="submit" style={{ width: '100%', padding: '14px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.2)' }}>
@@ -1023,14 +1367,14 @@ function App() {
                     <div style={{ fontWeight: '600', color: '#0f172a' }}>{opTicket.assignedTo.doctorName}</div>
                   </div>
                   <div>
-                    <span style={{ fontSize: '12px', color: '#64748b' }}>Room</span>
-                    <div style={{ fontWeight: '600', color: '#d97706' }}>Room 102</div>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Room & Timestamp</span>
+                    <div style={{ fontWeight: '600', color: '#d97706' }}>Room 102 ({formatDateTime(new Date())})</div>
                   </div>
                 </div>
 
                 {/* 1-Click WhatsApp Dispatch Button */}
                 <a 
-                  href={`https://api.whatsapp.com/send?phone=91${opTicket.patient.phoneNumber.replace(/[^0-9]/g, '').slice(-10)}&text=${encodeURIComponent(`🏥 *Chikitsya Setu (Gandhi Hospital)*\nHello *${opTicket.patient.name}*!\nYour O/P Registration is complete.\n\n🆔 *Patient ID:* ${opTicket.credentials.patientId}\n🔑 *Passcode:* ${opTicket.credentials.password}\n👨‍⚕️ *Assigned Doctor:* ${opTicket.assignedTo.doctorName} (Room 102)\n\n📲 *Track your visit live:* http://localhost:5173`)}`}
+                  href={`https://api.whatsapp.com/send?phone=91${opTicket.patient.phoneNumber.replace(/[^0-9]/g, '').slice(-10)}&text=${encodeURIComponent(`🏥 *Chikitsya Setu (Gandhi Hospital)*\nHello *${opTicket.patient.name}*!\nYour O/P Registration is complete.\n\n🆔 *Patient ID:* ${opTicket.credentials.patientId}\n🔑 *Passcode:* ${opTicket.credentials.password}\n👨‍⚕️ *Assigned Doctor:* ${opTicket.assignedTo.doctorName} (Room 102)\n🕒 *Time:* ${formatDateTime(new Date())}\n\n📲 *Track your visit live:* http://localhost:5173`)}`}
                   target="_blank" 
                   rel="noopener noreferrer"
                   style={{
@@ -1040,7 +1384,7 @@ function App() {
                     gap: '8px',
                     width: '100%',
                     padding: '14px',
-                    backgroundColor: '#256366',
+                    backgroundColor: '#25D366',
                     color: 'white',
                     borderRadius: '8px',
                     textDecoration: 'none',
@@ -1056,39 +1400,124 @@ function App() {
           </div>
         )}
 
-        {/* 8. HOSPITAL MANAGEMENT & OVERSIGHT */}
+        {/* 8. COMPREHENSIVE HOSPITAL ADMINISTRATION & EVERY DETAIL AUDIT TRAIL */}
         {activeView === 'admin' && currentUser?.role === 'admin' && (
-          <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>📊 Hospital Administration & Anti-Corruption Oversight</h2>
-            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '14px' }}>Live metrics, turnaround times, and automated accountability warnings.</p>
+          <div style={{ width: '100%', maxWidth: '1040px' }}>
+            <div style={{ backgroundColor: 'white', padding: '28px 36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <h2 style={{ margin: 0, color: '#0f172a' }}>📊 Hospital Administration & Full System Audit Trail</h2>
+                <button onClick={fetchHospitalAuditTrail} style={{ padding: '8px 14px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  🔄 Refresh Live Logs
+                </button>
+              </div>
+              <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>
+                Complete live stream of every single event in Gandhi Hospital with exact Date & Time timestamps.
+              </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
-              <div style={{ padding: '20px', borderRadius: '10px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                <span style={{ fontSize: '12px', color: '#1e40af', fontWeight: 'bold' }}>Average Wait Time</span>
-                <h3 style={{ margin: '6px 0 0 0', color: '#1d4ed8', fontSize: '24px' }}>14 Mins</h3>
-                <span style={{ fontSize: '12px', color: '#16a34a' }}>↓ 72% faster than manual queue</span>
+              {/* Date-wise Activity Breakdown Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
+                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                  <span style={{ fontSize: '11px', color: '#1e40af', fontWeight: 'bold', textTransform: 'uppercase' }}>Total System Events</span>
+                  <h3 style={{ margin: '4px 0 0 0', color: '#1d4ed8', fontSize: '24px' }}>{hospitalAuditTrail?.totalEvents || 0}</h3>
+                  <span style={{ fontSize: '11px', color: '#16a34a' }}>Logged in digital ledger</span>
+                </div>
+
+                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 'bold', textTransform: 'uppercase' }}>Registrations</span>
+                  <h3 style={{ margin: '4px 0 0 0', color: '#16a34a', fontSize: '24px' }}>{hospitalStats?.totalPatients || 0}</h3>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>With shortest-queue doc</span>
+                </div>
+
+                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
+                  <span style={{ fontSize: '11px', color: '#92400e', fontWeight: 'bold', textTransform: 'uppercase' }}>Diagnostic Labs</span>
+                  <h3 style={{ margin: '4px 0 0 0', color: '#b45309', fontSize: '24px' }}>{hospitalStats?.completedReports || 0}</h3>
+                  <span style={{ fontSize: '11px', color: '#16a34a' }}>100% Zero bribery verified</span>
+                </div>
+
+                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff' }}>
+                  <span style={{ fontSize: '11px', color: '#7e22ce', fontWeight: 'bold', textTransform: 'uppercase' }}>Active Inpatients</span>
+                  <h3 style={{ margin: '4px 0 0 0', color: '#9333ea', fontSize: '24px' }}>{hospitalStats?.activeAdmissions || 0}</h3>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>Anti-theft tracked beds</span>
+                </div>
               </div>
 
-              <div style={{ padding: '20px', borderRadius: '10px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                <span style={{ fontSize: '12px', color: '#15803d', fontWeight: 'bold' }}>Bribery Prevention</span>
-                <h3 style={{ margin: '6px 0 0 0', color: '#16a34a', fontSize: '24px' }}>100% Digital</h3>
-                <span style={{ fontSize: '12px', color: '#64748b' }}>Zero cash transactions allowed</span>
+              {/* Filter and Search Bar for Audit Trail */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search patient, ID, doctor, medicine, test name, or staff..."
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                  value={auditSearchQuery}
+                  onChange={e => setAuditSearchQuery(e.target.value)}
+                />
+
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {['ALL', 'REGISTRATION', 'LAB', 'PRESCRIPTION', 'ADMISSION'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setAuditFilterType(type)}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        border: 'none',
+                        backgroundColor: auditFilterType === type ? '#0f172a' : '#f1f5f9',
+                        color: auditFilterType === type ? 'white' : '#475569',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer'
+                      }}>
+                      {type}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div style={{ padding: '20px', borderRadius: '10px', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
-                <span style={{ fontSize: '12px', color: '#92400e', fontWeight: 'bold' }}>Active SLA Warnings</span>
-                <h3 style={{ margin: '6px 0 0 0', color: '#b45309', fontSize: '24px' }}>0 Delayed</h3>
-                <span style={{ fontSize: '12px', color: '#16a34a' }}>All labs within timeframe</span>
-              </div>
-            </div>
+              {/* Comprehensive Live Audit Log Table with Exact Date & Time */}
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 2fr 1.2fr 1.2fr', backgroundColor: '#f8fafc', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', fontSize: '12px', color: '#475569' }}>
+                  <span>EVENT TYPE & PATIENT</span>
+                  <span>DESCRIPTION / CLINICAL ACTION</span>
+                  <span>PERFORMED BY</span>
+                  <span style={{ textAlign: 'right' }}>DATE & TIME</span>
+                </div>
 
-            <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#0f172a' }}>Real-time Audit Logs</h4>
-              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#64748b', lineHeight: '1.8' }}>
-                <li>✅ PT-1001 auto-assigned to Dr. Ramesh Sharma based on shortest waiting queue.</li>
-                <li>✅ Complete Blood Count test digitally dispatched to Pathology Lab 1 (Room 105).</li>
-                <li>✅ Sister Mary logged 1x IV Infusion set for PT-1004 (Zero Leakage verification).</li>
-              </ul>
+                <div style={{ maxHeight: '550px', overflowY: 'auto' }}>
+                  {filteredAuditLogs.length === 0 ? (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No matching audit records found.</div>
+                  ) : (
+                    filteredAuditLogs.map((log, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1.4fr 2fr 1.2fr 1.2fr',
+                          padding: '14px 16px',
+                          borderBottom: idx !== filteredAuditLogs.length - 1 ? '1px solid #f1f5f9' : 'none',
+                          fontSize: '13px',
+                          alignItems: 'center',
+                          backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfcfd'
+                        }}>
+                        <div>
+                          <strong style={{ color: log.color, display: 'block', fontSize: '13px' }}>{log.title}</strong>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>{log.patientId}</span>
+                        </div>
+
+                        <div style={{ color: '#334155', fontSize: '12px', lineHeight: '1.4' }}>
+                          {log.details}
+                        </div>
+
+                        <div style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
+                          {log.actor}
+                        </div>
+
+                        <div style={{ textAlign: 'right', fontSize: '12px', color: '#2563eb', fontWeight: 'bold' }}>
+                          🕒 {formatDateTime(log.timestamp)}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1229,7 +1658,7 @@ function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
                 {doctorsList.map(doc => (
                   <button key={doc.doctorId} onClick={() => handleRoleSelectLogin('doctor', doc)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: 'white', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div><strong>{doc.name}</strong><div style={{ fontSize: '12px', color: '#64748b' }}>{doc.department}</div></div>
+                    <div><strong>{doc.name}</strong><div style={{ fontSize: '12px', color: '#64748b' }}>{doc.department} (ID: {doc.doctorId})</div></div>
                     <span style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold' }}>Enter ➔</span>
                   </button>
                 ))}

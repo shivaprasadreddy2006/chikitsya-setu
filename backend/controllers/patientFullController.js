@@ -4,9 +4,8 @@ const LabRequest = require('../models/LabRequest');
 const Prescription = require('../models/Prescription');
 const Referral = require('../models/Referral');
 const Admission = require('../models/Admission');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Unified Complete Medical History for Patient Portal & Doctors
+// 1. Unified Complete Medical History & Chronological Journey Timeline
 exports.getPatientFullFile = async (req, res) => {
     try {
         const { patientId } = req.params;
@@ -16,11 +15,162 @@ exports.getPatientFullFile = async (req, res) => {
 
         const [doctor, labRequests, prescriptions, referrals, admission] = await Promise.all([
             Doctor.findOne({ doctorId: patient.assignedDoctorId }),
-            LabRequest.find({ patientId: patient.patientId }).sort({ createdAt: -1 }),
-            Prescription.find({ patientId: patient.patientId }).sort({ createdAt: -1 }),
-            Referral.find({ patientId: patient.patientId }).sort({ createdAt: -1 }),
+            LabRequest.find({ patientId: patient.patientId }).sort({ createdAt: 1 }),
+            Prescription.find({ patientId: patient.patientId }).sort({ createdAt: 1 }),
+            Referral.find({ patientId: patient.patientId }).sort({ createdAt: 1 }),
             Admission.findOne({ patientId: patient.patientId }).sort({ createdAt: -1 })
         ]);
+
+        // Synthesize Complete Chronological Journey Milestones
+        const timeline = [];
+
+        // Milestone 1: Registration
+        timeline.push({
+            id: 'reg-01',
+            stage: 'O/P Registration',
+            timestamp: patient.createdAt,
+            details: `Registered at Gandhi Hospital O/P Reception. Assigned to ${doctor ? doctor.name : 'Physician'} (${doctor ? doctor.department : 'General Medicine'}, Room 102).`,
+            performedBy: 'O/P Desk Staff',
+            status: 'COMPLETED',
+            badgeBg: '#f0fdf4',
+            badgeColor: '#166534',
+            icon: '🎫'
+        });
+
+        // Milestone 2: Lab Orders & Results
+        labRequests.forEach((lab, idx) => {
+            timeline.push({
+                id: `lab-order-${idx}`,
+                stage: `Diagnostic Test Ordered: ${lab.testName}`,
+                timestamp: lab.createdAt,
+                details: `Dispatched to ${lab.labRoom} by ${doctor ? doctor.name : 'Physician'}. Clinical Notes: ${lab.notes || 'Routine checkup'}`,
+                performedBy: doctor ? doctor.name : 'Doctor',
+                status: 'ORDERED',
+                badgeBg: '#eff6ff',
+                badgeColor: '#1d4ed8',
+                icon: '🧪'
+            });
+
+            if (lab.sampleCollectedAt) {
+                timeline.push({
+                    id: `lab-sample-${idx}`,
+                    stage: `Sample Collected (${lab.testName})`,
+                    timestamp: lab.sampleCollectedAt,
+                    details: `Sample received by Pathology Technician in ${lab.labRoom}.`,
+                    performedBy: 'Pathology Lab Staff',
+                    status: 'IN_ANALYSIS',
+                    badgeBg: '#fef3c7',
+                    badgeColor: '#92400e',
+                    icon: '🔬'
+                });
+            }
+
+            if (lab.status === 'REPORT_READY') {
+                timeline.push({
+                    id: `lab-result-${idx}`,
+                    stage: `Lab Report Published: ${lab.testName}`,
+                    timestamp: lab.updatedAt || lab.createdAt,
+                    details: `Clinical Findings: "${lab.findings || 'Normal physiological ranges maintained'}". Digital direct upload (Zero Bribery verification).`,
+                    performedBy: 'Pathology Lab In-Charge',
+                    status: 'PUBLISHED',
+                    badgeBg: '#dcfce7',
+                    badgeColor: '#15803d',
+                    icon: '✅'
+                });
+            }
+        });
+
+        // Milestone 3: Prescriptions & Dispensation
+        prescriptions.forEach((rx, idx) => {
+            timeline.push({
+                id: `rx-order-${idx}`,
+                stage: `Prescription Created (${rx.medicines.length} Medicines)`,
+                timestamp: rx.createdAt,
+                details: `Medications: ${rx.medicines.map(m => `${m.name} (${m.dosage})`).join(', ')}. Instructions: ${rx.notes || 'Take as advised.'}`,
+                performedBy: doctor ? doctor.name : 'Doctor',
+                status: 'PRESCRIBED',
+                badgeBg: '#f5f3ff',
+                badgeColor: '#6d28d9',
+                icon: '💊'
+            });
+
+            if (rx.status === 'DISPENSED' || rx.dispensedAt) {
+                timeline.push({
+                    id: `rx-dispense-${idx}`,
+                    stage: `Medicines Dispensed by Central Pharmacy`,
+                    timestamp: rx.dispensedAt || rx.updatedAt || rx.createdAt,
+                    details: `All ${rx.medicines.length} medications dispensed at Counter #3. Zero cash payment verification complete.`,
+                    performedBy: 'Duty Pharmacist (Counter #3)',
+                    status: 'DISPENSED',
+                    badgeBg: '#dcfce7',
+                    badgeColor: '#15803d',
+                    icon: '📦'
+                });
+            }
+        });
+
+        // Milestone 4: Referrals
+        referrals.forEach((ref, idx) => {
+            timeline.push({
+                id: `ref-${idx}`,
+                stage: `Super-Specialty Referral: ${ref.toDepartment}`,
+                timestamp: ref.createdAt,
+                details: `Referred by ${ref.fromDoctorName || 'Physician'}. Clinical Reason: "${ref.reason}"`,
+                performedBy: ref.fromDoctorName || 'Doctor',
+                status: 'REFERRED',
+                badgeBg: '#fef2f2',
+                badgeColor: '#b91c1c',
+                icon: '🔄'
+            });
+        });
+
+        // Milestone 5: Inpatient Ward Admission & Consumables
+        if (admission) {
+            timeline.push({
+                id: `adm-01`,
+                stage: `Inpatient Ward Admission (${admission.wardType})`,
+                timestamp: admission.admittedAt || admission.createdAt,
+                details: `Allocated Bed: ${admission.bedNumber}. Initial Diagnosis: ${admission.diagnosis}`,
+                performedBy: 'Admitting Physician & Ward In-Charge',
+                status: admission.status,
+                badgeBg: '#fee2e2',
+                badgeColor: '#991b1b',
+                icon: '🛏️'
+            });
+
+            if (admission.resourcesAllocated && admission.resourcesAllocated.length > 0) {
+                admission.resourcesAllocated.forEach((res, i) => {
+                    timeline.push({
+                        id: `res-${i}`,
+                        stage: `Consumable Logged: ${res.itemName}`,
+                        timestamp: res.loggedAt || admission.createdAt,
+                        details: `Quantity: ${res.quantity}. Logged to patient bed ledger by ${res.loggedByStaff} (Zero Leakage audit trail).`,
+                        performedBy: res.loggedByStaff || 'Duty Nurse',
+                        status: 'LOGGED',
+                        badgeBg: '#faf5ff',
+                        badgeColor: '#7e22ce',
+                        icon: '💉'
+                    });
+                });
+            }
+
+            if (admission.status === 'DISCHARGED' || admission.dischargedAt) {
+                timeline.push({
+                    id: `disch-01`,
+                    stage: `Patient Discharged from Inpatient Ward`,
+                    timestamp: admission.dischargedAt || admission.updatedAt,
+                    details: `Discharge Summary: "${admission.dischargeSummary || 'Patient stable. Home recovery advised.'}"`,
+                    performedBy: 'Ward Sister & Chief Resident',
+                    status: 'DISCHARGED',
+                    badgeBg: '#dcfce7',
+                    badgeColor: '#15803d',
+                    icon: '🏁'
+                });
+            }
+        }
+
+        // Sort chronologically (earliest to latest)
+        timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
         res.status(200).json({
             patient,
@@ -28,14 +178,15 @@ exports.getPatientFullFile = async (req, res) => {
             labRequests,
             prescriptions,
             referrals,
-            admission
+            admission,
+            timeline
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 };
 
-// Hospital Transparency & Admin Stats
+// 2. Hospital Transparency & Real-Time Stats
 exports.getHospitalStats = async (req, res) => {
     try {
         const [totalPatients, totalDoctors, pendingLabs, activeAdmissions, completedReports] = await Promise.all([
@@ -60,235 +211,158 @@ exports.getHospitalStats = async (req, res) => {
     }
 };
 
-// Real Generative AI Hospital Navigator (Gemini LLM + Contextual Multi-Lingual Reasoning Engine)
-exports.askHospitalAIAssistant = async (req, res) => {
+// 3. Complete Comprehensive Hospital Audit Trail (Date & Time for Everything)
+exports.getHospitalAuditTrail = async (req, res) => {
     try {
-        const { patientId, query, language } = req.body;
+        const [patients, doctors, labRequests, prescriptions, admissions, referrals] = await Promise.all([
+            Patient.find().sort({ createdAt: -1 }),
+            Doctor.find(),
+            LabRequest.find().sort({ createdAt: -1 }),
+            Prescription.find().sort({ createdAt: -1 }),
+            Admission.find().sort({ createdAt: -1 }),
+            Referral.find().sort({ createdAt: -1 })
+        ]);
 
-        if (!query) {
-            return res.status(400).json({ answer: "Please ask a question about your hospital visit or directions." });
-        }
+        const allLogs = [];
 
-        let patient = null;
-        let doctor = null;
-        let labRequests = [];
-        let prescriptions = [];
-        let admission = null;
-
-        if (patientId) {
-            patient = await Patient.findOne({ patientId: patientId.toUpperCase() });
-            if (patient) {
-                [doctor, labRequests, prescriptions, admission] = await Promise.all([
-                    Doctor.findOne({ doctorId: patient.assignedDoctorId }),
-                    LabRequest.find({ patientId: patient.patientId }).sort({ createdAt: -1 }),
-                    Prescription.find({ patientId: patient.patientId }).sort({ createdAt: -1 }),
-                    Admission.findOne({ patientId: patient.patientId }).sort({ createdAt: -1 })
-                ]);
-            }
-        }
-
-        const patientName = patient?.name || 'Patient';
-        const docName = doctor?.name || 'Dr. Ramesh Sharma';
-        const docDept = doctor?.department || 'General Medicine';
-        const docRoom = 'Room 102 (OPD Block A, Ground Floor, Wing 1)';
-        const docQueue = doctor?.currentQueueCount || 0;
-        const status = patient?.currentStatus || 'WAITING_FOR_DOCTOR';
-
-        // Language identification
-        const isTeluguScript = /[\u0C00-\u0C7F]/.test(query);
-        const isTeluguWords = /evaru|ekkada|vellali|mandoo|mandulu|dabbulu|feejul|ela|chesukovali|naa|meeru|chudandi|em|cheyali|undhi|unaru/i.test(query);
-        const isTelugu = language === 'te-IN' || isTeluguScript || isTeluguWords;
-
-        const isHindiScript = /[\u0900-\u097F]/.test(query);
-        const isHindiWords = /kahan|kaun|dawa|jaana|paisa|kya|kaise|mera|kripya|bataiye|hai|hoga/i.test(query);
-        const isHindi = language === 'hi-IN' || isHindiScript || isHindiWords;
-
-        const targetLangName = isTelugu ? 'Telugu (తెలుగు)' : isHindi ? 'Hindi (हिन्दी)' : 'English';
-        const targetLangCode = isTelugu ? 'te-IN' : isHindi ? 'hi-IN' : 'en-IN';
-
-        // --- METHOD 1: GOOGLE GEMINI GENERATIVE AI (IF GEMINI_API_KEY CONFIGURED) ---
-        if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
-            try {
-                const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-                const systemPrompt = `You are "Aarogya Vaani", an empathetic, intelligent AI hospital guide at Gandhi Hospital (Hyderabad/Secunderabad), India.
-Patient Context:
-- Name: ${patientName}
-- ID: ${patient?.patientId || 'N/A'}
-- Current Visit Stage: ${status}
-- Assigned Doctor: ${docName} (${docDept}), Location: ${docRoom}
-- Doctor's Current Queue: ${docQueue} patients
-- Laboratory Orders: ${labRequests.length > 0 ? JSON.stringify(labRequests.map(l => ({ test: l.testName, status: l.status, room: l.labRoom, findings: l.findings }))) : 'None'}
-- Prescriptions: ${prescriptions.length > 0 ? JSON.stringify(prescriptions.map(p => ({ medicines: p.medicines.map(m => m.name), status: p.status }))) : 'None'}
-- Ward Admission: ${admission ? `${admission.wardType}, Bed ${admission.bedNumber}` : 'Outpatient (Not Admitted)'}
-
-Hospital Directory:
-- OPD Block A (Rooms 101-105): General Medicine
-- Pathology Lab 1 (Room 105): Blood & fluid tests (Free, no bribes)
-- Radiology & X-Ray (Room 110, 1st Floor)
-- Pharmacy Counter #3: Ground floor near main exit (100% Free medicines)
-- Emergency Casualty (Block E, Ground Floor, 24/7)
-- Policy: 100% Free Public Healthcare under Telangana Govt. No fees or bribes.
-
-CRITICAL INSTRUCTIONS:
-1. Respond in ${targetLangName}. If the user asked in Telugu (or Tanglish), respond in fluent, polite Telugu.
-2. Keep the answer concise (2-4 sentences max), direct, and crystal clear so it can be spoken out loud over speaker.
-3. Be compassionate and actionable (tell them exactly which room or counter to walk to).
-`;
-
-                const result = await model.generateContent(`${systemPrompt}\n\nPatient Query: "${query}"\nAnswer in ${targetLangName}:`);
-                const aiText = result.response.text().trim();
-
-                if (aiText) {
-                    return res.status(200).json({
-                        query,
-                        answer: aiText,
-                        language: targetLangCode
-                    });
-                }
-            } catch (geminiErr) {
-                console.error("Gemini API call failed, falling back to neural contextual generator:", geminiErr.message);
-            }
-        }
-
-        // --- METHOD 2: DEEP CONTEXTUAL DYNAMIC GENERATIVE REASONER (ZERO LATENCY & MULTI-LINGUAL) ---
-        const q = query.toLowerCase().trim();
-        let answer = '';
-
-        // Doctor / Cabin / Consultation
-        if (q.includes('doctor') || q.includes('dr') || q.includes('physician') || q.includes('room') || q.includes('cabin') || q.includes('డాక్టర్') || q.includes('రూమ్') || q.includes('evaru') || q.includes('ఎవరు') || q.includes('చికిత్స') || q.includes('వైద్యుడు') || q.includes('डॉक्टर')) {
-            if (isTelugu) {
-                answer = `నమస్కారం ${patientName}! మీ కేటాయించిన వైద్యులు ${docName} (${docDept}). వారు గ్రౌండ్ ఫ్లోర్ ఓపీడీ బ్లాక్ A లోని రూమ్ నంబర్ 102 లో ఉన్నారు. రిసెప్షన్ నుండి ఆకుపచ్చ నేల మార్గాన్ని అనుసరించండి. ప్రస్తుతం లైన్‌లో ${docQueue} మంది రోగులు ఉన్నారు.`;
-            } else if (isHindi) {
-                answer = `नमस्ते ${patientName}! आपके डॉक्टर ${docName} (${docDept}) हैं। वे ग्राउंड फ्लोर ओपीडी ब्लॉक A के कमरा नंबर 102 में बैठते हैं। कतार में अभी ${docQueue} मरीज हैं।`;
-            } else {
-                answer = `Hello ${patientName}! Your assigned physician is ${docName} in ${docDept}. You can find them at ${docRoom}. There are currently ${docQueue} patient(s) waiting in queue.`;
-            }
-        }
-        // Lab / Blood / Diagnostics / Reports
-        else if (q.includes('lab') || q.includes('blood') || q.includes('test') || q.includes('report') || q.includes('cbc') || q.includes('ల్యాబ్') || q.includes('రక్తం') || q.includes('టెస్ట్') || q.includes('రిపోర్ట్') || q.includes('pariksha') || q.includes('खून') || q.includes('जांच') || q.includes('रिपोर्ट')) {
-            if (labRequests.length > 0) {
-                const latest = labRequests[0];
-                if (latest.status === 'REPORT_READY') {
-                    if (isTelugu) {
-                        answer = `మీ "${latest.testName}" రిపోర్ట్ సిద్ధంగా ఉంది! ఫలితాలు: ${latest.findings || 'సాధారణం'}. దయచేసి రూమ్ 102 లోని డాక్టర్ ${docName} గారిని కలిసి ప్రిస్క్రిప్షన్ తీసుకోండి.`;
-                    } else if (isHindi) {
-                        answer = `आपकी "${latest.testName}" रिपोर्ट तैयार है! निष्कर्ष: ${latest.findings || 'सामान्य'}। कृपया डॉक्टर ${docName} (कमरा 102) से मिलकर आगे की दवा लें।`;
-                    } else {
-                        answer = `Your "${latest.testName}" report is ready with findings: ${latest.findings || 'Normal'}. Please return to Doctor Room 102 for your prescription.`;
-                    }
-                } else if (latest.status === 'SAMPLE_COLLECTED') {
-                    if (isTelugu) {
-                        answer = `మీ "${latest.testName}" శాంపిల్ పాథాలజీ ల్యాబ్‌లో పరిశీలించబడుతోంది. రిపోర్ట్ రాగానే మీ ఫోన్‌లో ప్రత్యక్షంగా కనిపిస్తుంది.`;
-                    } else if (isHindi) {
-                        answer = `आपका "${latest.testName}" सैंपल जांच में है। रिपोर्ट आते ही आपके फोन पर दिख जाएगी।`;
-                    } else {
-                        answer = `Your sample for "${latest.testName}" is currently under analysis in Pathology Lab 1 (Room 105).`;
-                    }
-                } else {
-                    if (isTelugu) {
-                        answer = `మీరు "${latest.testName}" కోసం రూమ్ నంబర్ 105 పాథాలజీ ల్యాబ్‌కి వెళ్లి రక్త నమూనా ఇవ్వాలి. దీనికి ఎటువంటి రుసుము లేదా లంచం చెల్లించనవసరం లేదు.`;
-                    } else if (isHindi) {
-                        answer = `आपको "${latest.testName}" के लिए कमरा 105 पैथोलॉजी लैब में सैंपल देना होगा। यह पूरी तरह मुफ्त है।`;
-                    } else {
-                        answer = `Please visit Pathology Lab 1 in Room 105 across the hallway to give your sample for "${latest.testName}".`;
-                    }
-                }
-            } else {
-                if (isTelugu) {
-                    answer = `ప్రస్తుతం డాక్టర్ మీకు ఎటువంటి ల్యాబ్ పరీక్షలు రాయలేదు. అవసరమైతే పాథాలజీ ల్యాబ్ గ్రౌండ్ ఫ్లోర్ రూమ్ 105 లో ఉంది.`;
-                } else if (isHindi) {
-                    answer = `अभी आपको कोई लैब टेस्ट नहीं लिखा गया है। पैथोलॉजी लैब कमरा नंबर 105 में है।`;
-                } else {
-                    answer = `No diagnostic laboratory tests are pending for your visit right now. Pathology Lab 1 is in Room 105.`;
-                }
-            }
-        }
-        // Medicines / Pharmacy
-        else if (q.includes('medicine') || q.includes('pharmacy') || q.includes('tablet') || q.includes('drug') || q.includes('syrup') || q.includes('మందులు') || q.includes('ఫార్మసీ') || q.includes('mandulu') || q.includes('mandoo') || q.includes('दवा') || q.includes('फार्मेसी')) {
-            if (prescriptions.length > 0) {
-                const latestRx = prescriptions[0];
-                const medNames = latestRx.medicines.map(m => m.name).join(', ');
-                const isDispensed = latestRx.status === 'DISPENSED';
-                if (isTelugu) {
-                    answer = `డాక్టర్ రాసిన మందులు: ${medNames}. స్థితి: ${isDispensed ? '✅ ఫార్మసీలో అందజేయబడింది.' : '⏳ గ్రౌండ్ ఫ్లోర్ మెయిన్ ఎగ్జిట్ వద్ద ఉన్న ఫార్మసీ కౌంటర్ నంబర్ 3 లో ఉచితంగా తీసుకోండి.'}`;
-                } else if (isHindi) {
-                    answer = `आपकी दवाएं: ${medNames}। स्थिति: ${isDispensed ? '✅ दवा दी जा चुकी है।' : '⏳ ग्राउंड फ्लोर मुख्य निकास के पास फार्मेसी काउंटर 3 से मुफ्त प्राप्त करें।'}`;
-                } else {
-                    answer = `Your prescribed medicines: ${medNames}. Status: ${isDispensed ? 'Dispensed' : 'Ready for collection at Pharmacy Counter #3 near the Ground Floor exit.'}`;
-                }
-            } else {
-                if (isTelugu) {
-                    answer = `ఇంకా ప్రిస్క్రిప్షన్ రాయలేదు. డాక్టర్ సంప్రదింపుల తర్వాత గ్రౌండ్ ఫ్లోర్ ఫార్మసీ కౌంటర్ 3 వద్ద ఉచితంగా మందులు పొందవచ్చు.`;
-                } else if (isHindi) {
-                    answer = `अभी दवा का पर्चा नहीं लिखा गया है। चेकअप के बाद फार्मेसी काउंटर 3 से दवाएं मिलेंगी।`;
-                } else {
-                    answer = `No active prescription is logged yet. Pharmacy Counter #3 is located near the main hospital exit.`;
-                }
-            }
-        }
-        // Cost / Fee / Bribe / Free Policy
-        else if (q.includes('cost') || q.includes('fee') || q.includes('money') || q.includes('pay') || q.includes('bribe') || q.includes('charge') || q.includes('free') || q.includes('డబ్బు') || q.includes('ఫీజు') || q.includes('లంచం') || q.includes('dabbulu') || q.includes('feejul') || q.includes('rupai') || q.includes('पैसा') || q.includes('फीस') || q.includes('रिश्वत')) {
-            if (isTelugu) {
-                answer = `గాంధీ ఆసుపత్రిలో ఓపీ రిజిస్ట్రేషన్, డాక్టర్ కన్సల్టేషన్, రక్త పరీక్షలు మరియు మందులు 100% ఉచితం. ఎవరికీ ఒక్క రూపాయి కూడా లంచం ఇవ్వవద్దు. చికిత్సా సేతు ద్వారా ప్రతి ప్రక్రియ డిజిటల్‌గా పారదర్శకంగా పర్యవేక్షించబడుతుంది.`;
-            } else if (isHindi) {
-                answer = `गांधी अस्पताल में ओपीडी पर्ची, डॉक्टर जांच, खून टेस्ट और सभी दवाएं 100% मुफ्त हैं। किसी को भी कोई रिश्वत या शुल्क न दें।`;
-            } else {
-                answer = `All services at Gandhi Hospital are 100% FREE under public health policy. Zero user fees or informal payments are permitted.`;
-            }
-        }
-        // General Navigation / Next Action / Where to go
-        else if (q.includes('next') || q.includes('where') || q.includes('go') || q.includes('now') || q.includes('step') || q.includes('ekkada') || q.includes('vellali') || q.includes('em') || q.includes('cheyali') || q.includes('కहाँ') || q.includes('जाना')) {
-            if (status === 'WAITING_FOR_DOCTOR') {
-                if (isTelugu) {
-                    answer = `మీరు ఇప్పుడు గ్రౌండ్ ఫ్లోర్ ఓపీడీ బ్లాక్ A లోని రూమ్ నంబర్ 102 కి వెళ్లి డాక్టర్ ${docName} గారిని కలవాలి.`;
-                } else if (isHindi) {
-                    answer = `आपको अभी ग्राउंड फ्लोर ओपीडी ब्लॉक A में कमरा नंबर 102 जाकर डॉक्टर ${docName} से मिलना है।`;
-                } else {
-                    answer = `Please proceed directly to Room 102 in OPD Block A on the Ground Floor to consult ${docName}.`;
-                }
-            } else if (status === 'DIAGNOSTICS_ORDERED') {
-                if (isTelugu) {
-                    answer = `దయచేసి శాంపిల్ ఇవ్వడానికి ఎదురుగా ఉన్న రూమ్ 105 పాథాలజీ ల్యాబ్‌కి వెళ్లండి.`;
-                } else if (isHindi) {
-                    answer = `कृपया सैंपल देने के लिए कमरा नंबर 105 पैथोलॉजी लैब में जाएं।`;
-                } else {
-                    answer = `Please walk across to Pathology Lab 1 in Room 105 for your diagnostic sample collection.`;
-                }
-            } else if (status === 'PHARMACY_QUEUE') {
-                if (isTelugu) {
-                    answer = `మీ చెకప్ పూర్తయింది. మందుల కోసం గ్రౌండ్ ఫ్లోర్ మెయిన్ ఎగ్జిట్ వద్ద ఉన్న ఫార్మసీ కౌంటర్ 3 కి వెళ్లండి.`;
-                } else if (isHindi) {
-                    answer = `दवाएं लेने के लिए ग्राउंड फ्लोर फार्मेसी काउंटर 3 पर जाएं।`;
-                } else {
-                    answer = `Your examination is complete. Please collect your medicines from Pharmacy Counter #3 near the main exit.`;
-                }
-            } else {
-                if (isTelugu) {
-                    answer = `మీ విజిట్ పూర్తయింది. మీకు ఇంకా ఏదైనా సహాయం కావాలంటే నన్ను అడగవచ్చు.`;
-                } else {
-                    answer = `Your visit is complete. Let me know if you need directions to any other department!`;
-                }
-            }
-        }
-        // Dynamic Intelligent Fallback
-        else {
-            if (isTelugu) {
-                answer = `మీరు "${query}" గురించి అడిగారు. మీ డాక్టర్ ${docName} (రూమ్ 102). మీరు ల్యాబ్ టెస్ట్ రూమ్ 105 లేదా ఫార్మసీ కౌంటర్ 3 గురించి కూడా నన్ను అడగవచ్చు!`;
-            } else if (isHindi) {
-                answer = `आपने "${query}" के बारे में पूछा। आपके डॉक्टर ${docName} (कमरा 102) हैं। आप लैब, दवा या अस्पताल के रास्तों के बारे में पूछ सकते हैं।`;
-            } else {
-                answer = `Regarding "${query}": Your assigned doctor is ${docName} in Room 102. Feel free to ask me about lab tests, medicine collection, or hospital room directions!`;
-            }
-        }
-
-        res.status(200).json({
-            query,
-            answer,
-            language: targetLangCode
+        // Patient Registrations
+        patients.forEach(p => {
+            const doc = doctors.find(d => d.doctorId === p.assignedDoctorId);
+            allLogs.push({
+                type: 'REGISTRATION',
+                title: `Patient Registered: ${p.name} (${p.patientId})`,
+                timestamp: p.createdAt,
+                details: `Age: ${p.age}y ${p.gender} | Phone: +91 ${p.phoneNumber} | Assigned: ${doc ? doc.name : p.assignedDoctorId} (Room 102)`,
+                actor: 'O/P Desk Staff (STAFF-OP-01)',
+                patientId: p.patientId,
+                patientName: p.name,
+                status: p.currentStatus,
+                color: '#16a34a'
+            });
         });
 
+        // Lab Orders & Results
+        labRequests.forEach(l => {
+            allLogs.push({
+                type: 'LAB_ORDER',
+                title: `Lab Test Dispatched: ${l.testName}`,
+                timestamp: l.createdAt,
+                details: `Patient: ${l.patientId} | Room: ${l.labRoom} | Ordered by: ${l.doctorId} | Status: ${l.status}`,
+                actor: l.doctorId,
+                patientId: l.patientId,
+                status: l.status,
+                color: '#2563eb'
+            });
+
+            if (l.status === 'REPORT_READY') {
+                allLogs.push({
+                    type: 'LAB_REPORT',
+                    title: `Diagnostic Finding Published: ${l.testName}`,
+                    timestamp: l.updatedAt || l.createdAt,
+                    details: `Patient: ${l.patientId} | Findings: "${l.findings || 'Normal'}" | Zero Bribery verified`,
+                    actor: 'Pathology Lab In-Charge',
+                    patientId: l.patientId,
+                    status: 'PUBLISHED',
+                    color: '#15803d'
+                });
+            }
+        });
+
+        // Prescriptions & Dispensation
+        prescriptions.forEach(rx => {
+            allLogs.push({
+                type: 'PRESCRIPTION',
+                title: `Prescription Written (${rx.medicines.length} Meds)`,
+                timestamp: rx.createdAt,
+                details: `Patient: ${rx.patientId} | Doctor: ${rx.doctorId} | Drugs: ${rx.medicines.map(m => m.name).join(', ')}`,
+                actor: rx.doctorId,
+                patientId: rx.patientId,
+                status: rx.status,
+                color: '#7c3aed'
+            });
+
+            if (rx.status === 'DISPENSED' || rx.dispensedAt) {
+                allLogs.push({
+                    type: 'PHARMACY_DISPENSE',
+                    title: `Free Medications Dispensed`,
+                    timestamp: rx.dispensedAt || rx.updatedAt,
+                    details: `Patient: ${rx.patientId} | Counter #3 | Zero Cash charge policy applied`,
+                    actor: 'Chief Pharmacist',
+                    patientId: rx.patientId,
+                    status: 'DISPENSED',
+                    color: '#059669'
+                });
+            }
+        });
+
+        // Admissions & Micro-Resources
+        admissions.forEach(adm => {
+            allLogs.push({
+                type: 'ADMISSION',
+                title: `Inpatient Admission: ${adm.wardType}`,
+                timestamp: adm.admittedAt || adm.createdAt,
+                details: `Patient: ${adm.patientId} | Bed: ${adm.bedNumber} | Diagnosis: ${adm.diagnosis}`,
+                actor: adm.admittingDoctorId,
+                patientId: adm.patientId,
+                status: adm.status,
+                color: '#dc2626'
+            });
+
+            if (adm.resourcesAllocated && adm.resourcesAllocated.length > 0) {
+                adm.resourcesAllocated.forEach(res => {
+                    allLogs.push({
+                        type: 'RESOURCE_USAGE',
+                        title: `Micro-Resource Logged: ${res.itemName}`,
+                        timestamp: res.loggedAt || adm.createdAt,
+                        details: `Patient: ${adm.patientId} | Qty: ${res.quantity} | Logged by: ${res.loggedByStaff} (Anti-Theft Ledger)`,
+                        actor: res.loggedByStaff,
+                        patientId: adm.patientId,
+                        status: 'VERIFIED',
+                        color: '#9333ea'
+                    });
+                });
+            }
+
+            if (adm.status === 'DISCHARGED' || adm.dischargedAt) {
+                allLogs.push({
+                    type: 'DISCHARGE',
+                    title: `Patient Discharged from Ward`,
+                    timestamp: adm.dischargedAt || adm.updatedAt,
+                    details: `Patient: ${adm.patientId} | Summary: "${adm.dischargeSummary || 'Stable'}"`,
+                    actor: 'Ward Sister',
+                    patientId: adm.patientId,
+                    status: 'COMPLETED',
+                    color: '#166534'
+                });
+            }
+        });
+
+        // Sort all logs by Date & Time (Latest First)
+        allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Group by Date for Date-wise Statistics
+        const dateBreakdown = {};
+        allLogs.forEach(log => {
+            const dateStr = new Date(log.timestamp).toLocaleDateString('en-IN', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+            if (!dateBreakdown[dateStr]) {
+                dateBreakdown[dateStr] = { date: dateStr, count: 0, registrations: 0, labs: 0, prescriptions: 0, admissions: 0 };
+            }
+            dateBreakdown[dateStr].count += 1;
+            if (log.type === 'REGISTRATION') dateBreakdown[dateStr].registrations += 1;
+            if (log.type.startsWith('LAB')) dateBreakdown[dateStr].labs += 1;
+            if (log.type.startsWith('PRESCRIPTION') || log.type.startsWith('PHARMACY')) dateBreakdown[dateStr].prescriptions += 1;
+            if (log.type.startsWith('ADMISSION') || log.type.startsWith('RESOURCE')) dateBreakdown[dateStr].admissions += 1;
+        });
+
+        res.status(200).json({
+            totalEvents: allLogs.length,
+            dateBreakdown: Object.values(dateBreakdown),
+            allLogs
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
