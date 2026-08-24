@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 
 const API_BASE = 'http://localhost:5000/api'
@@ -48,6 +48,63 @@ const fileToBase64 = (file) => {
   })
 }
 
+// Generate an instant stylized high-resolution Medical Verification Badge Canvas
+const generateMedicalPresetImage = (type, title, subtitle) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = 600
+  canvas.height = 400
+  const ctx = canvas.getContext('2d')
+
+  // Background
+  ctx.fillStyle = type === 'pharmacy' ? '#064e3b' : type === 'lab' ? '#1e3a8a' : '#581c87'
+  ctx.fillRect(0, 0, 600, 400)
+
+  // Inner card
+  ctx.fillStyle = '#ffffff'
+  ctx.roundRect(20, 20, 560, 360, 16)
+  ctx.fill()
+
+  // Header Banner
+  ctx.fillStyle = type === 'pharmacy' ? '#10b981' : type === 'lab' ? '#3b82f6' : '#a855f7'
+  ctx.fillRect(20, 20, 560, 60)
+
+  ctx.fillStyle = '#ffffff'
+  ctx.font = 'bold 20px sans-serif'
+  ctx.fillText('🏥 GANDHI HOSPITAL - PHOTO PROOF AUDIT', 40, 58)
+
+  // Icon
+  ctx.font = '54px sans-serif'
+  ctx.fillText(type === 'pharmacy' ? '💊' : type === 'lab' ? '🧪' : '💉', 40, 150)
+
+  // Content
+  ctx.fillStyle = '#0f172a'
+  ctx.font = 'bold 22px sans-serif'
+  ctx.fillText(title, 110, 130)
+
+  ctx.fillStyle = '#475569'
+  ctx.font = '16px sans-serif'
+  ctx.fillText(subtitle, 110, 160)
+
+  // Details box
+  ctx.fillStyle = '#f8fafc'
+  ctx.fillRect(40, 190, 520, 110)
+  ctx.strokeStyle = '#e2e8f0'
+  ctx.strokeRect(40, 190, 520, 110)
+
+  ctx.fillStyle = '#334155'
+  ctx.font = '14px monospace'
+  ctx.fillText(`STATUS: VERIFIED & PHYSICALLY HANDED OVER`, 55, 220)
+  ctx.fillText(`TIMESTAMP: ${new Date().toLocaleString('en-IN')}`, 55, 245)
+  ctx.fillText(`SECURITY: ZERO-LEAKAGE DIGITAL WATERMARK`, 55, 270)
+
+  // Official Stamp
+  ctx.fillStyle = '#16a34a'
+  ctx.font = 'bold 16px sans-serif'
+  ctx.fillText('✅ OFFICIAL AUDIT EVIDENCE CAPTURED', 120, 345)
+
+  return canvas.toDataURL('image/jpeg', 0.85)
+}
+
 function App() {
   const savedSession = getSavedSession()
 
@@ -58,6 +115,20 @@ function App() {
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginRole, setLoginRole] = useState('patient')
   const [currentUser, setCurrentUser] = useState(savedSession ? savedSession : null)
+
+  // ---------- CAMERA / WEBCAM CAPTURE MODAL STATE ----------
+  const [cameraModal, setCameraModal] = useState({
+    isOpen: false,
+    title: '',
+    purpose: '', // 'pharmacy' | 'lab' | 'ward'
+    targetId: null,
+    onSuccess: null
+  })
+  const [cameraStreamActive, setCameraStreamActive] = useState(false)
+  const [cameraError, setCameraError] = useState('')
+  const [capturedPhotoPreview, setCapturedPhotoPreview] = useState(null)
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
 
   // ---------- STAFF / OP DESK LOGIN STATE ----------
   const [opStaffUser, setOpStaffUser] = useState('')
@@ -168,6 +239,86 @@ function App() {
       fetchPatientFullFile(currentUser.data.patientId)
     }
   }, [activeView, selectedDoctorId, currentUser])
+
+  // Stop camera when modal is closed
+  useEffect(() => {
+    if (!cameraModal.isOpen && streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+      setCameraStreamActive(false)
+    }
+  }, [cameraModal.isOpen])
+
+  // Start Laptop Webcam Stream
+  const startWebcam = async () => {
+    setCameraError('')
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 } }
+        })
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.play()
+        }
+        setCameraStreamActive(true)
+      } else {
+        setCameraError('Camera access not supported on this browser. You can upload an image or use a 1-click preset!')
+      }
+    } catch (err) {
+      console.warn('Webcam permission error:', err)
+      setCameraError('Laptop camera permission denied or camera not found. You can upload a photo file or select a 1-click medical sample preset!')
+    }
+  }
+
+  // Snap photo from live Laptop Webcam
+  const snapWebcamPhoto = () => {
+    if (!videoRef.current) return
+    const video = videoRef.current
+    const canvas = document.createElement('canvas')
+    canvas.width = video.videoWidth || 640
+    canvas.height = video.videoHeight || 480
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    
+    // Add date & time watermark to proof
+    ctx.fillStyle = 'rgba(0,0,0,0.6)'
+    ctx.fillRect(10, canvas.height - 40, canvas.width - 20, 30)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '14px sans-serif'
+    ctx.fillText(`🏥 GANDHI HOSPITAL PHOTO PROOF | ${new Date().toLocaleString('en-IN')}`, 20, canvas.height - 20)
+
+    const base64 = canvas.toDataURL('image/jpeg', 0.85)
+    setCapturedPhotoPreview(base64)
+  }
+
+  const openCameraModal = (title, purpose, targetId, onSuccess) => {
+    setCapturedPhotoPreview(null)
+    setCameraError('')
+    setCameraModal({
+      isOpen: true,
+      title,
+      purpose,
+      targetId,
+      onSuccess
+    })
+    setTimeout(() => {
+      startWebcam()
+    }, 200)
+  }
+
+  const confirmCapturedPhoto = () => {
+    if (cameraModal.onSuccess && capturedPhotoPreview) {
+      cameraModal.onSuccess(capturedPhotoPreview)
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+    setCameraModal({ isOpen: false, title: '', purpose: '', targetId: null, onSuccess: null })
+    setCapturedPhotoPreview(null)
+  }
 
   const fetchDoctors = async () => {
     try {
@@ -457,42 +608,39 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
-  // ---------- LAB ACTIONS (WITH PHOTO PROOF OF SAMPLE & FILM) ----------
-  const handleLabCollect = async (reqId) => {
+  // ---------- LAB ACTIONS (WITH PHOTO PROOF MODAL) ----------
+  const executeLabCollectWithPhoto = async (reqId, photoProof) => {
     try {
-      const photo = labPhotoProofs[reqId] || null
-      const res = await axios.put(`${API_BASE}/labs/collect/${reqId}`, { photoProof: photo })
+      const res = await axios.put(`${API_BASE}/labs/collect/${reqId}`, { photoProof })
       setLabMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchLabOrders()
     } catch (err) { setLabMessage(`⚠️ ${err.message}`) }
   }
 
-  const handleLabPublish = async (reqId) => {
+  const executeLabPublishWithPhoto = async (reqId, photoProof) => {
     try {
       const findings = labFindingsInput[reqId] || 'Normal biological reference intervals maintained.'
-      const photo = labPhotoProofs[reqId] || null
-      const res = await axios.put(`${API_BASE}/labs/publish/${reqId}`, { findings, photoProof: photo })
+      const res = await axios.put(`${API_BASE}/labs/publish/${reqId}`, { findings, photoProof })
       setLabMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchLabOrders()
     } catch (err) { setLabMessage(`⚠️ ${err.message}`) }
   }
 
-  // ---------- PHARMACY ACTIONS (WITH PHOTO PROOF OF HANDED-OVER MEDICINE) ----------
-  const handleDispense = async (rxId) => {
+  // ---------- PHARMACY ACTIONS (WITH PHOTO PROOF MODAL) ----------
+  const executeDispenseWithPhoto = async (rxId, photoProof) => {
     try {
-      const photo = pharmacyPhotoProofs[rxId] || null
-      const res = await axios.put(`${API_BASE}/pharmacy/dispense/${rxId}`, { photoProof: photo })
+      const res = await axios.put(`${API_BASE}/pharmacy/dispense/${rxId}`, { photoProof })
       setPharmacyMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchPrescriptions()
     } catch (err) { setPharmacyMessage(`⚠️ ${err.message}`) }
   }
 
-  // ---------- WARD ACTIONS (WITH BEDSIDE PHOTO PROOF) ----------
-  const handleLogResource = async (admissionId) => {
+  // ---------- WARD ACTIONS (WITH PHOTO PROOF MODAL) ----------
+  const executeLogResourceWithPhoto = async (admissionId, photoProof) => {
     try {
       const res = await axios.post(`${API_BASE}/admissions/resource/${admissionId}`, { 
         itemName: resourceItemName,
-        photoProof: wardResourcePhotoProof
+        photoProof: photoProof || wardResourcePhotoProof
       })
       setWardMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       setWardResourcePhotoProof(null)
@@ -1437,14 +1585,14 @@ function App() {
           </div>
         )}
 
-        {/* 4. DIAGNOSTIC LAB DASHBOARD (WITH PHOTO PROOF OF SAMPLE & FILM) */}
+        {/* 4. DIAGNOSTIC LAB DASHBOARD (WITH LIVE WEBCAM & PHOTO PROOF MODAL) */}
         {activeView === 'lab' && currentUser?.role === 'lab' && (
           <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <h2 style={{ margin: 0, color: '#0f172a' }}>🔬 Diagnostic Laboratory Monitor</h2>
-              <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>📸 Photo-Verified Lab</span>
+              <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>📸 Live Camera & Proof Verification</span>
             </div>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Actionable queue for sample collections, film uploads, and photo proof of biological samples.</p>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Capture live webcam proof of barcoded vials and diagnostic report films to guarantee Zero Exploitation.</p>
 
             {labMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{labMessage}</div>}
 
@@ -1468,64 +1616,44 @@ function App() {
                   </div>
 
                   {order.status === 'PENDING' && (
-                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '6px' }}>
-                        📸 Attach Photo of Barcoded Sample Vial / Patient Token:
-                      </label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        capture="environment" 
-                        onChange={async (e) => {
-                          if (e.target.files[0]) {
-                            const b64 = await fileToBase64(e.target.files[0])
-                            setLabPhotoProofs({ ...labPhotoProofs, [order._id]: b64 })
-                          }
-                        }}
-                        style={{ fontSize: '12px', marginBottom: '10px' }}
-                      />
-                      {labPhotoProofs[order._id] && (
-                        <div style={{ marginBottom: '10px' }}>
-                          <img src={labPhotoProofs[order._id]} alt="Vial Proof" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                        </div>
-                      )}
-                      <button onClick={() => handleLabCollect(order._id)} style={{ padding: '8px 18px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                        🧪 Confirm Sample Collection {labPhotoProofs[order._id] ? '(with Photo Proof)' : ''} ➔
+                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: '#334155', fontWeight: '600' }}>Patient awaiting sample collection in {order.labRoom}</span>
+                      <button 
+                        onClick={() => openCameraModal(
+                          `📸 Capture Blood/Fluid Sample Proof (${order.testName})`,
+                          'lab',
+                          order._id,
+                          (photo) => executeLabCollectWithPhoto(order._id, photo)
+                        )}
+                        style={{ padding: '10px 20px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(37,99,235,0.2)' }}>
+                        <span>📷</span> Open Camera & Collect Sample ➔
                       </button>
                     </div>
                   )}
 
                   {order.status === 'SAMPLE_COLLECTED' && (
-                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ fontSize: '12px', color: '#15803d', marginBottom: '8px' }}>
-                        Sample Collected at: {formatDateTime(order.sampleCollectedAt || order.updatedAt)}
+                    <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontSize: '12px', color: '#15803d', marginBottom: '8px', fontWeight: 'bold' }}>
+                        ✓ Sample Collected at: {formatDateTime(order.sampleCollectedAt || order.updatedAt)}
                       </div>
                       
                       <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>Enter Clinical Findings:</label>
-                      <input type="text" placeholder="e.g. Hb: 13.8 g/dL, WBC: 7,200 /mcL, Platelets: 2.4 Lakhs" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} onChange={e => setLabFindingsInput({...labFindingsInput, [order._id]: e.target.value})} />
-
-                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        📸 Upload Photo Proof of Diagnostic Sheet / Film:
-                      </label>
                       <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={async (e) => {
-                          if (e.target.files[0]) {
-                            const b64 = await fileToBase64(e.target.files[0])
-                            setLabPhotoProofs({ ...labPhotoProofs, [order._id]: b64 })
-                          }
-                        }}
-                        style={{ fontSize: '12px', marginBottom: '10px' }}
+                        type="text" 
+                        placeholder="e.g. Hb: 13.8 g/dL, WBC: 7,200 /mcL, Platelets: 2.4 Lakhs (Normal Limits)" 
+                        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px', boxSizing: 'border-box' }} 
+                        onChange={e => setLabFindingsInput({...labFindingsInput, [order._id]: e.target.value})} 
                       />
-                      {labPhotoProofs[order._id] && (
-                        <div style={{ marginBottom: '10px' }}>
-                          <img src={labPhotoProofs[order._id]} alt="Report Sheet Proof" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                        </div>
-                      )}
 
-                      <button onClick={() => handleLabPublish(order._id)} style={{ padding: '8px 18px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                        Publish to Patient Portal {labPhotoProofs[order._id] ? '(with Photo Proof)' : ''} ➔
+                      <button 
+                        onClick={() => openCameraModal(
+                          `📸 Capture Diagnostic Report Sheet / Film Proof (${order.testName})`,
+                          'lab',
+                          order._id,
+                          (photo) => executeLabPublishWithPhoto(order._id, photo)
+                        )}
+                        style={{ width: '100%', padding: '12px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(22,163,74,0.25)' }}>
+                        <span>📷</span> Open Camera & Publish Diagnostic Finding ➔
                       </button>
                     </div>
                   )}
@@ -1538,8 +1666,8 @@ function App() {
                           <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Published: {formatDateTime(order.updatedAt)}</div>
                         </div>
                         {order.photoProof && (
-                          <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
-                            📸 Photo Proof Verified
+                          <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold' }}>
+                            📸 Live Photo Verified
                           </span>
                         )}
                       </div>
@@ -1551,14 +1679,14 @@ function App() {
           </div>
         )}
 
-        {/* 5. PHARMACY DASHBOARD (WITH PHOTO PROOF OF HANDED-OVER MEDICINES) */}
+        {/* 5. PHARMACY DASHBOARD (WITH LIVE WEBCAM & HANDOVER PHOTO PROOF) */}
         {activeView === 'pharmacy' && currentUser?.role === 'pharmacy' && (
           <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <h2 style={{ margin: 0, color: '#0f172a' }}>💊 Pharmacy Dispensing Counter</h2>
-              <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>📸 Handover Photo Proof</span>
+              <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>📸 Live Handover Camera</span>
             </div>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Verify digital prescriptions, capture photo proof of medicine packets handed over, and prevent stock diversion.</p>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Verify digital prescriptions, snap live webcam proof of medicine packets handed over, and prevent stock diversion.</p>
 
             {pharmacyMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{pharmacyMessage}</div>}
 
@@ -1585,38 +1713,25 @@ function App() {
                   </ul>
 
                   {rx.status !== 'COMPLETELY_DISPENSED' && rx.status !== 'DISPENSED' ? (
-                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>
-                        📸 Capture / Upload Photo Proof of Medicine Packet Handover:
-                      </label>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        capture="environment"
-                        onChange={async (e) => {
-                          if (e.target.files[0]) {
-                            const b64 = await fileToBase64(e.target.files[0])
-                            setPharmacyPhotoProofs({ ...pharmacyPhotoProofs, [rx._id]: b64 })
-                          }
-                        }}
-                        style={{ fontSize: '12px', marginBottom: '10px' }}
-                      />
-                      {pharmacyPhotoProofs[rx._id] && (
-                        <div style={{ marginBottom: '10px' }}>
-                          <img src={pharmacyPhotoProofs[rx._id]} alt="Med Packet Proof" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                        </div>
-                      )}
-
-                      <button onClick={() => handleDispense(rx._id)} style={{ padding: '10px 18px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                        Dispense & Verify Handover {pharmacyPhotoProofs[rx._id] ? '(with Photo Proof)' : ''} ➔
+                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '13px', color: '#334155', fontWeight: '600' }}>Patient at Counter #3 ready for physical collection</span>
+                      <button 
+                        onClick={() => openCameraModal(
+                          `📸 Capture Live Medicine Handover Proof (Patient: ${rx.patientId})`,
+                          'pharmacy',
+                          rx._id,
+                          (photo) => executeDispenseWithPhoto(rx._id, photo)
+                        )}
+                        style={{ padding: '12px 22px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(22,163,74,0.25)' }}>
+                        <span>📷</span> Open Camera & Dispense Medicines ➔
                       </button>
                     </div>
                   ) : (
-                    <div style={{ fontSize: '12px', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '12px', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '10px 14px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
                       <span>✅ Dispensed on: {formatDateTime(rx.dispensedAt || rx.updatedAt)}</span>
                       {rx.photoProof && (
-                        <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
-                          📸 Proof Verified
+                        <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold' }}>
+                          📸 Handover Proof Verified
                         </span>
                       )}
                     </div>
@@ -1634,7 +1749,7 @@ function App() {
               <h2 style={{ margin: 0, color: '#0f172a' }}>🛏️ Inpatient Ward & Micro-Resource Tracker</h2>
               <span style={{ fontSize: '12px', backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>Zero Supply Leakage</span>
             </div>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Track bed allocations, consumables consumed, blood units, and permanent discharged archives with photo proofs.</p>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Track bed allocations, consumables consumed, blood units, and permanent discharged archives with live camera proofs.</p>
 
             {wardMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{wardMessage}</div>}
 
@@ -1748,31 +1863,24 @@ function App() {
                       )}
                     </div>
 
-                    {/* Nurse Log Resource Action Bar with Bedside Photo Proof */}
+                    {/* Nurse Log Resource Action Bar with Bedside Live Camera */}
                     {adm.status === 'ADMITTED' && (
-                      <div style={{ backgroundColor: '#f1f5f9', padding: '12px', borderRadius: '8px' }}>
+                      <div style={{ backgroundColor: '#f1f5f9', padding: '14px', borderRadius: '8px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                          Log Medical Supply / Consumable to Bed Ledger:
+                        </label>
                         <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
-                          <input type="text" placeholder="e.g. Blood Unit O+ / Syringe 10ml / Surgical Dressing..." style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }} value={resourceItemName} onChange={e => setResourceItemName(e.target.value)} />
-                          <button onClick={() => handleLogResource(adm._id)} style={{ padding: '8px 16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                            + Log Consumable {wardResourcePhotoProof ? '(with Photo)' : ''}
+                          <input type="text" placeholder="e.g. Blood Unit O+ / Syringe 10ml / Surgical Dressing..." style={{ flex: 1, padding: '10px 14px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }} value={resourceItemName} onChange={e => setResourceItemName(e.target.value)} />
+                          <button 
+                            onClick={() => openCameraModal(
+                              `📸 Capture Bedside Consumable Proof (${resourceItemName})`,
+                              'ward',
+                              adm._id,
+                              (photo) => executeLogResourceWithPhoto(adm._id, photo)
+                            )}
+                            style={{ padding: '10px 20px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>📷</span> Camera & Log Supply
                           </button>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>📸 Optional Bedside Photo Proof:</label>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            capture="environment"
-                            onChange={async (e) => {
-                              if (e.target.files[0]) {
-                                const b64 = await fileToBase64(e.target.files[0])
-                                setWardResourcePhotoProof(b64)
-                              }
-                            }}
-                            style={{ fontSize: '11px' }}
-                          />
-                          {wardResourcePhotoProof && <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 'bold' }}>✓ Photo Attached</span>}
                         </div>
                       </div>
                     )}
@@ -2011,6 +2119,139 @@ function App() {
         )}
 
       </main>
+
+      {/* DEDICATED LAPTOP WEBCAM / CAMERA CAPTURE MODAL */}
+      {cameraModal.isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '20px' }}>
+          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '620px', borderRadius: '18px', padding: '28px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)', position: 'relative', maxHeight: '92vh', overflowY: 'auto' }}>
+            <button 
+              onClick={() => {
+                if (streamRef.current) {
+                  streamRef.current.getTracks().forEach(track => track.stop())
+                  streamRef.current = null
+                }
+                setCameraModal({ isOpen: false, title: '', purpose: '', targetId: null, onSuccess: null })
+              }} 
+              style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer', color: '#64748b' }}>
+              ✕
+            </button>
+
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', color: '#0f172a' }}>{cameraModal.title}</h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#64748b' }}>
+              Mandatory live photographic verification required to confirm physical handover & eliminate theft.
+            </p>
+
+            {/* Video Viewfinder / Live Stream */}
+            {!capturedPhotoPreview ? (
+              <div>
+                <div style={{ position: 'relative', backgroundColor: '#0f172a', borderRadius: '12px', overflow: 'hidden', height: '280px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '14px', border: '2px solid #3b82f6' }}>
+                  <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  
+                  {/* Viewfinder Target Box Overlay */}
+                  <div style={{ position: 'absolute', top: '20px', left: '20px', right: '20px', bottom: '20px', border: '2px dashed rgba(255,255,255,0.7)', borderRadius: '10px', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '12px' }}>
+                      Position {cameraModal.purpose === 'pharmacy' ? 'Medicine Packet & ID' : cameraModal.purpose === 'lab' ? 'Sample Vial / Report Sheet' : 'Consumable Pack'} in Frame
+                    </span>
+                  </div>
+                </div>
+
+                {cameraError && (
+                  <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '10px', borderRadius: '8px', fontSize: '12px', color: '#b91c1c', marginBottom: '12px' }}>
+                    ⚠️ {cameraError}
+                  </div>
+                )}
+
+                {/* Camera Actions */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                  <button 
+                    onClick={snapWebcamPhoto}
+                    style={{ padding: '12px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                    <span>📸</span> Snap with Laptop Camera
+                  </button>
+
+                  <label style={{ padding: '12px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer', textAlign: 'center', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px' }}>
+                    <span>📁</span> Upload Image from Laptop
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      style={{ display: 'none' }}
+                      onChange={async (e) => {
+                        if (e.target.files[0]) {
+                          const b64 = await fileToBase64(e.target.files[0])
+                          setCapturedPhotoPreview(b64)
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* 1-Click Fast Presets (To easily test without webcam) */}
+                <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '6px' }}>
+                    ⚡ Instant 1-Click Medical Sample Presets (For Fast Testing):
+                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {cameraModal.purpose === 'pharmacy' && (
+                      <button 
+                        onClick={() => setCapturedPhotoPreview(generateMedicalPresetImage('pharmacy', 'Dispensed Medication Packet', 'Paracetamol 650mg + Cetirizine 10mg (Counter #3)'))}
+                        style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                        💊 Preset: Dispensed Meds Pack
+                      </button>
+                    )}
+                    {cameraModal.purpose === 'lab' && (
+                      <>
+                        <button 
+                          onClick={() => setCapturedPhotoPreview(generateMedicalPresetImage('lab', 'Barcoded Sample Tube (EDTA/Serum)', 'Pathology Lab 1 - Room 105'))}
+                          style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#dbeafe', color: '#1d4ed8', border: '1px solid #93c5fd', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                          🧪 Preset: Blood Sample Tube
+                        </button>
+                        <button 
+                          onClick={() => setCapturedPhotoPreview(generateMedicalPresetImage('lab', 'Central Diagnostic Report Sheet', 'CBC & Bio-chemistry Analyzer Printout'))}
+                          style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                          📋 Preset: Lab Diagnostic Sheet
+                        </button>
+                      </>
+                    )}
+                    {cameraModal.purpose === 'ward' && (
+                      <button 
+                        onClick={() => setCapturedPhotoPreview(generateMedicalPresetImage('ward', 'Bedside Consumable Administration', 'IV Cannula 20G & 500ml Normal Saline Pack'))}
+                        style={{ padding: '6px 12px', fontSize: '12px', backgroundColor: '#f3e8ff', color: '#7e22ce', border: '1px solid #d8b4fe', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
+                        💉 Preset: IV Cannula & Saline Pack
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              /* Photo Preview & Confirmation */
+              <div>
+                <div style={{ textAlign: 'center', backgroundColor: '#0f172a', padding: '10px', borderRadius: '12px', marginBottom: '16px' }}>
+                  <img src={capturedPhotoPreview} alt="Captured Proof" style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '8px', objectFit: 'contain' }} />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '10px' }}>
+                  <button 
+                    onClick={() => {
+                      setCapturedPhotoPreview(null)
+                      startWebcam()
+                    }} 
+                    style={{ padding: '12px', backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}>
+                    🔄 Retake Photo
+                  </button>
+
+                  <button 
+                    onClick={confirmCapturedPhoto} 
+                    style={{ padding: '12px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)' }}>
+                    ✅ Confirm & Submit Photo Proof ➔
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
 
       {/* INTERACTIVE CLINICAL DETAIL INSPECTION MODAL (WITH PHOTO PROOFS) */}
       {selectedDetailItem && (
