@@ -1,6 +1,7 @@
 const Doctor = require('../models/Doctor');
 const Patient = require('../models/Patient');
 const LabRequest = require('../models/LabRequest');
+const Admission = require('../models/Admission');
 
 // 1. Get all doctors
 exports.getAllDoctors = async (req, res) => {
@@ -111,7 +112,7 @@ exports.orderLabTest = async (req, res) => {
     }
 };
 
-// 4. Doctor completes consultation & Authorizes Discharge with Clinical Summary
+// 4. Doctor completes consultation & Authorizes Discharge (Syncs with Ward Inpatient Records!)
 exports.completeConsultation = async (req, res) => {
     try {
         const { doctorId, patientId, dischargeSummary, dischargeType, followUpAdvice } = req.body;
@@ -124,6 +125,7 @@ exports.completeConsultation = async (req, res) => {
         const typeText = dischargeType || 'Routine Outpatient Completion (Home Recovery)';
         const followUpText = followUpAdvice || 'Follow-up after 5-7 days if symptoms persist.';
 
+        // Update Patient
         const updatedPatient = await Patient.findOneAndUpdate(
             { patientId },
             { 
@@ -137,13 +139,24 @@ exports.completeConsultation = async (req, res) => {
             { new: true }
         );
 
+        // Synchronously discharge active Inpatient Ward record if exists (never delete, archive with full resources!)
+        await Admission.updateMany(
+            { patientId, status: 'ADMITTED' },
+            {
+                status: 'DISCHARGED',
+                dischargedAt: new Date(),
+                dischargeSummary: summaryText,
+                dischargedByDoctorName: `${docName} (${docDept})`
+            }
+        );
+
         await Doctor.findOneAndUpdate(
             { doctorId },
             { $inc: { currentQueueCount: -1 } }
         );
 
         res.status(200).json({
-            message: `Discharge Authorized: ${updatedPatient.name} successfully discharged by ${docName} (${docDept})!`,
+            message: `Discharge Authorized: ${updatedPatient.name} successfully discharged by ${docName} (${docDept})! Synchronized across Ward Ledgers.`,
             patient: updatedPatient
         });
     } catch (error) {

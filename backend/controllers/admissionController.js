@@ -1,20 +1,37 @@
 const Admission = require('../models/Admission');
 const Patient = require('../models/Patient');
+const Doctor = require('../models/Doctor');
 
 // 1. Admit Patient & Allocate Bed
 exports.admitPatient = async (req, res) => {
     try {
         const { patientId, admittingDoctorId, wardType, bedNumber, diagnosis } = req.body;
 
+        const [patient, doctor] = await Promise.all([
+            Patient.findOne({ patientId }),
+            Doctor.findOne({ doctorId: admittingDoctorId })
+        ]);
+
+        const patName = patient ? patient.name : 'Inpatient';
+        const patPhone = patient ? patient.phoneNumber : 'N/A';
+        const patAge = patient ? patient.age : 40;
+        const patGender = patient ? patient.gender : 'Unknown';
+        const docName = doctor ? `${doctor.name} (${doctor.department})` : admittingDoctorId;
+
         const newAdmission = new Admission({
             patientId,
+            patientName: patName,
+            phoneNumber: patPhone,
+            age: patAge,
+            gender: patGender,
             admittingDoctorId,
+            admittingDoctorName: docName,
             wardType: wardType || 'General Ward (Male)',
             bedNumber: bedNumber || 'BED-GW-04',
             diagnosis: diagnosis || 'Under Inpatient Observation & Treatment',
             resourcesAllocated: [
-                { itemName: 'Inpatient Bed Sheet & Pillow Set', quantity: 1 },
-                { itemName: 'IV Infusion Set 500ml Normal Saline', quantity: 1 }
+                { itemName: 'Inpatient Bed Sheet & Pillow Set', quantity: 1, loggedAt: new Date(), loggedByStaff: 'Ward Sister (Shift A)' },
+                { itemName: 'IV Cannula 20G & Infusion Set 500ml NS', quantity: 1, loggedAt: new Date(), loggedByStaff: 'Ward Sister (Shift A)' }
             ]
         });
         await newAdmission.save();
@@ -25,7 +42,7 @@ exports.admitPatient = async (req, res) => {
         );
 
         res.status(201).json({
-            message: `Patient admitted to ${wardType} (${bedNumber}) successfully!`,
+            message: `Patient ${patName} admitted to ${wardType} (${bedNumber}) successfully!`,
             admission: newAdmission
         });
     } catch (error) {
@@ -33,11 +50,30 @@ exports.admitPatient = async (req, res) => {
     }
 };
 
-// 2. Get active admissions
+// 2. Get all admissions (both active & discharged with full patient details)
 exports.getActiveAdmissions = async (req, res) => {
     try {
-        const list = await Admission.find({ status: 'ADMITTED' }).sort({ createdAt: -1 });
-        res.status(200).json(list);
+        const [admissions, patients, doctors] = await Promise.all([
+            Admission.find().sort({ createdAt: -1 }),
+            Patient.find(),
+            Doctor.find()
+        ]);
+
+        // Enrich any historical records with patient & doctor info if missing
+        const enriched = admissions.map(adm => {
+            const admObj = adm.toObject();
+            const pat = patients.find(p => p.patientId === adm.patientId);
+            const doc = doctors.find(d => d.doctorId === adm.admittingDoctorId);
+
+            admObj.patientName = admObj.patientName || (pat ? pat.name : adm.patientId);
+            admObj.phoneNumber = admObj.phoneNumber || (pat ? pat.phoneNumber : 'N/A');
+            admObj.age = admObj.age || (pat ? pat.age : '-');
+            admObj.gender = admObj.gender || (pat ? pat.gender : '-');
+            admObj.admittingDoctorName = admObj.admittingDoctorName || (doc ? `${doc.name} (${doc.department})` : adm.admittingDoctorId);
+            return admObj;
+        });
+
+        res.status(200).json(enriched);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -54,9 +90,10 @@ exports.logResource = async (req, res) => {
             {
                 $push: {
                     resourcesAllocated: {
-                        itemName,
+                        itemName: itemName || 'Medical Consumable',
                         quantity: quantity || 1,
-                        loggedByStaff: loggedByStaff || 'Duty Nurse'
+                        loggedAt: new Date(),
+                        loggedByStaff: loggedByStaff || 'Duty Nurse (Ward Station)'
                     }
                 }
             },
@@ -64,7 +101,7 @@ exports.logResource = async (req, res) => {
         );
 
         res.status(200).json({
-            message: `Resource "${itemName}" logged digitally to patient file!`,
+            message: `Resource "${itemName}" logged digitally to patient bed ledger!`,
             admission: updated
         });
     } catch (error) {
@@ -72,27 +109,36 @@ exports.logResource = async (req, res) => {
     }
 };
 
-// 4. Discharge Patient
+// 4. Discharge Patient from Inpatient Ward
 exports.dischargePatient = async (req, res) => {
     try {
         const { admissionId } = req.params;
-        const { dischargeSummary } = req.body;
+        const { dischargeSummary, dischargedBy } = req.body;
 
         const admission = await Admission.findById(admissionId);
         if (!admission) return res.status(404).json({ message: "Admission record not found" });
 
+        const summaryText = dischargeSummary || 'Patient vitals stable. Cleared for discharge with home medications.';
+        const dischargedByName = dischargedBy || 'Duty Ward Sister & Attending Physician';
+
         admission.status = 'DISCHARGED';
         admission.dischargedAt = new Date();
-        admission.dischargeSummary = dischargeSummary || 'Patient stable and discharged with home medications.';
+        admission.dischargeSummary = summaryText;
+        admission.dischargedByDoctorName = dischargedByName;
         await admission.save();
 
         await Patient.findOneAndUpdate(
             { patientId: admission.patientId },
-            { currentStatus: 'DISCHARGED' }
+            { 
+                currentStatus: 'COMPLETED',
+                dischargeSummary: summaryText,
+                dischargedByDoctorName: dischargedByName,
+                dischargedAt: new Date()
+            }
         );
 
         res.status(200).json({
-            message: "Patient officially discharged and cleared!",
+            message: `Patient ${admission.patientName || admission.patientId} officially discharged from ${admission.wardType}!`,
             admission
         });
     } catch (error) {

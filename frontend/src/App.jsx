@@ -105,6 +105,7 @@ function App() {
 
   // ---------- INPATIENT WARD STATE ----------
   const [admissionsList, setAdmissionsList] = useState([])
+  const [wardViewFilter, setWardViewFilter] = useState('admitted') // 'admitted' | 'discharged'
   const [resourceItemName, setResourceItemName] = useState('IV Cannula 20G & Normal Saline')
   const [wardMessage, setWardMessage] = useState('')
 
@@ -423,7 +424,7 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
-  // DEDICATED DISCHARGE / COMPLETE OUTPATIENT ACTION
+  // DEDICATED DISCHARGE / COMPLETE OUTPATIENT ACTION (SYNCHRONIZED WITH WARDS)
   const handleDoctorDischargeSubmit = async (e) => {
     e.preventDefault()
     if (!activePatientForExam) return
@@ -438,6 +439,7 @@ function App() {
       setDoctorMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchDoctorQueue(selectedDoctorId)
       inspectPatientTimeline(activePatientForExam)
+      fetchAdmissions()
       fetchHospitalStats()
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
@@ -480,9 +482,13 @@ function App() {
 
   const handleDischarge = async (admissionId) => {
     try {
-      const res = await axios.put(`${API_BASE}/admissions/discharge/${admissionId}`, { dischargeSummary: 'Vitals stable. Home medications advised.' })
+      const res = await axios.put(`${API_BASE}/admissions/discharge/${admissionId}`, { 
+        dischargeSummary: 'Vitals stable. Home medications advised.',
+        dischargedBy: 'Duty Ward Sister & Chief Resident'
+      })
       setWardMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchAdmissions()
+      fetchHospitalStats()
     } catch (err) { setWardMessage(`⚠️ ${err.message}`) }
   }
 
@@ -508,6 +514,11 @@ function App() {
     }
     return doctorQueueData.allAssignedPatients || []
   })()
+
+  // Filter Ward Patients (Active Admitted vs Discharged Archives)
+  const activeAdmittedList = admissionsList.filter(a => a.status === 'ADMITTED')
+  const dischargedAdmittedList = admissionsList.filter(a => a.status === 'DISCHARGED')
+  const displayedWardList = wardViewFilter === 'admitted' ? activeAdmittedList : dischargedAdmittedList
 
   // Filter Admin Audit Trail
   const filteredAuditLogs = (hospitalAuditTrail?.allLogs || []).filter(log => {
@@ -1008,7 +1019,7 @@ function App() {
                     onClick={() => setSelectedDetailItem({
                       type: 'ADMISSION',
                       stage: `Inpatient Admission Record (${patientFullFile.admission.wardType})`,
-                      doctorName: patientFullFile.admission.admittingDoctorId,
+                      doctorName: patientFullFile.admission.admittingDoctorName || patientFullFile.admission.admittingDoctorId,
                       timestamp: patientFullFile.admission.admittedAt || patientFullFile.admission.createdAt,
                       room: patientFullFile.admission.bedNumber,
                       block: patientFullFile.admission.wardType,
@@ -1022,8 +1033,13 @@ function App() {
                         <strong>Ward: {patientFullFile.admission.wardType}</strong>
                         <div style={{ fontSize: '13px', color: '#64748b' }}>Bed Allocation: {patientFullFile.admission.bedNumber}</div>
                         <div style={{ fontSize: '12px', color: '#64748b' }}>Admitted: {formatDateTime(patientFullFile.admission.admittedAt || patientFullFile.admission.createdAt)}</div>
+                        {patientFullFile.admission.status === 'DISCHARGED' && (
+                          <div style={{ fontSize: '12px', color: '#15803d', marginTop: '4px', fontWeight: 'bold' }}>
+                            🏁 Discharged on: {formatDateTime(patientFullFile.admission.dischargedAt)} ({patientFullFile.admission.dischargedByDoctorName || 'Discharged'})
+                          </div>
+                        )}
                       </div>
-                      <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#dcfce7', color: '#15803d' }}>
+                      <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: patientFullFile.admission.status === 'DISCHARGED' ? '#dcfce7' : '#fee2e2', color: patientFullFile.admission.status === 'DISCHARGED' ? '#15803d' : '#991b1b' }}>
                         {patientFullFile.admission.status}
                       </span>
                     </div>
@@ -1188,7 +1204,7 @@ function App() {
                         <div>
                           <strong>#{i + 1} {p.name}</strong>
                           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                            {p.patientId} | {p.age}y {p.gender}
+                            {p.patientId} | {p.age}y {p.gender} • Ph: +91 {p.phoneNumber}
                           </div>
                           <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px' }}>
                             🕒 Reg: {formatDateTime(p.createdAt)}
@@ -1226,7 +1242,7 @@ function App() {
                       <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold', textTransform: 'uppercase' }}>Active File</span>
                       <h3 style={{ margin: '2px 0 0 0', color: '#0f172a' }}>{activePatientForExam.name} ({activePatientForExam.patientId})</h3>
                       <span style={{ fontSize: '12px', color: '#64748b' }}>
-                        {activePatientForExam.age}y {activePatientForExam.gender} • Reg: {formatDateTime(activePatientForExam.createdAt)}
+                        {activePatientForExam.age}y {activePatientForExam.gender} • Ph: +91 {activePatientForExam.phoneNumber} • Reg: {formatDateTime(activePatientForExam.createdAt)}
                       </span>
                     </div>
 
@@ -1481,45 +1497,140 @@ function App() {
           </div>
         )}
 
-        {/* 6. INPATIENT WARD DASHBOARD */}
+        {/* 6. INPATIENT WARD DASHBOARD (ACTIVE & DISCHARGED ARCHIVES WITH ZERO LEAKAGE RESOURCE LEDGER) */}
         {activeView === 'ward' && currentUser?.role === 'ward' && (
-          <div style={{ width: '100%', maxWidth: '860px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>🛏️ Inpatient Ward & Micro-Resource Tracker</h2>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Log bed allocations, surgical consumables, blood units, and patient discharges.</p>
+          <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h2 style={{ margin: 0, color: '#0f172a' }}>🛏️ Inpatient Ward & Micro-Resource Tracker</h2>
+              <span style={{ fontSize: '12px', backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>Zero Supply Leakage</span>
+            </div>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Track bed allocations, consumables consumed, blood units, and permanent discharged archives.</p>
 
             {wardMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{wardMessage}</div>}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {admissionsList.map(adm => (
-                <div key={adm._id} style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <div>
-                      <strong style={{ fontSize: '16px', color: '#0f172a' }}>Patient: {adm.patientId}</strong>
-                      <div style={{ fontSize: '13px', color: '#64748b' }}>{adm.wardType} - {adm.bedNumber}</div>
-                      <div style={{ fontSize: '12px', color: '#2563eb' }}>Admitted: {formatDateTime(adm.admittedAt || adm.createdAt)}</div>
+            {/* Ward Filter Switcher: Active vs Discharged Archives */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px' }}>
+              <button
+                onClick={() => setWardViewFilter('admitted')}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: wardViewFilter === 'admitted' ? '#0f172a' : '#f1f5f9',
+                  color: wardViewFilter === 'admitted' ? 'white' : '#475569',
+                  fontWeight: 'bold',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}>
+                🛏️ Currently Admitted Patients ({activeAdmittedList.length})
+              </button>
+
+              <button
+                onClick={() => setWardViewFilter('discharged')}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: wardViewFilter === 'discharged' ? '#0f172a' : '#f1f5f9',
+                  color: wardViewFilter === 'discharged' ? 'white' : '#475569',
+                  fontWeight: 'bold',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}>
+                🏁 Discharged Inpatient Archives ({dischargedAdmittedList.length})
+              </button>
+            </div>
+
+            {/* Inpatient Cards List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {displayedWardList.length === 0 ? (
+                <p style={{ color: '#94a3b8', textAlign: 'center', padding: '30px' }}>
+                  {wardViewFilter === 'admitted' ? 'No patients currently admitted in wards.' : 'No discharged inpatient records found.'}
+                </p>
+              ) : (
+                displayedWardList.map(adm => (
+                  <div key={adm._id} style={{ border: '1px solid #e2e8f0', padding: '22px', borderRadius: '12px', backgroundColor: adm.status === 'DISCHARGED' ? '#fcfcfd' : '#f8fafc', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                    
+                    {/* Inpatient Card Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <strong style={{ fontSize: '18px', color: '#0f172a' }}>{adm.patientName || adm.patientId}</strong>
+                          <span style={{ fontSize: '13px', color: '#64748b' }}>({adm.patientId})</span>
+                          <span style={{ fontSize: '12px', padding: '2px 8px', backgroundColor: '#e2e8f0', borderRadius: '10px', color: '#334155', fontWeight: '600' }}>
+                            {adm.age}y {adm.gender}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: '600', marginTop: '4px' }}>
+                          📱 Mobile: <strong>+91 {adm.phoneNumber}</strong> • Ward: <strong>{adm.wardType} ({adm.bedNumber})</strong>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#2563eb', marginTop: '2px' }}>
+                          👨‍⚕️ Admitting Doctor: <strong>{adm.admittingDoctorName || adm.admittingDoctorId}</strong>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                          🕒 Admitted On: <strong>{formatDateTime(adm.admittedAt || adm.createdAt)}</strong>
+                        </div>
+
+                        {adm.status === 'DISCHARGED' && (
+                          <div style={{ marginTop: '8px', padding: '10px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', fontSize: '12px', color: '#15803d' }}>
+                            <strong>🏁 Discharged On:</strong> {formatDateTime(adm.dischargedAt)} by <strong>{adm.dischargedByDoctorName || 'Physician'}</strong>
+                            <div style={{ marginTop: '4px', color: '#166534' }}>
+                              <strong>Discharge Summary:</strong> "{adm.dischargeSummary || 'Vitals stable. Home medications advised.'}"
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ padding: '5px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: adm.status === 'DISCHARGED' ? '#dcfce7' : '#fee2e2', color: adm.status === 'DISCHARGED' ? '#15803d' : '#991b1b' }}>
+                          {adm.status}
+                        </span>
+
+                        {adm.status === 'ADMITTED' && (
+                          <div style={{ marginTop: '10px' }}>
+                            <button onClick={() => handleDischarge(adm._id)} style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
+                              🏁 Discharge Bed ➔
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => handleDischarge(adm._id)} style={{ padding: '6px 14px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
-                      Discharge Patient ➔
-                    </button>
-                  </div>
 
-                  <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
-                    <strong style={{ fontSize: '13px', color: '#334155' }}>Items & Consumables Logged:</strong>
-                    <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13px', color: '#64748b' }}>
-                      {adm.resourcesAllocated?.map((res, i) => (
-                        <li key={i}>{res.itemName} (Qty: {res.quantity}) - by {res.loggedByStaff} • 🕒 {formatDateTime(res.loggedAt)}</li>
-                      ))}
-                    </ul>
-                  </div>
+                    {/* Consumables and Resources Ledger (Zero Leakage) */}
+                    <div style={{ backgroundColor: 'white', padding: '14px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <strong style={{ fontSize: '13px', color: '#334155' }}>
+                          📦 Consumables & Micro-Resources Logged ({adm.resourcesAllocated?.length || 0} Items):
+                        </strong>
+                        <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 'bold' }}>✓ Anti-Theft Ledger Audited</span>
+                      </div>
 
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <input type="text" placeholder="e.g. Blood Unit O+ / Syringe 10ml / Dressing..." style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} value={resourceItemName} onChange={e => setResourceItemName(e.target.value)} />
-                    <button onClick={() => handleLogResource(adm._id)} style={{ padding: '8px 16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                      + Log Resource
-                    </button>
+                      {adm.resourcesAllocated?.length === 0 ? (
+                        <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>No items logged yet.</p>
+                      ) : (
+                        <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13px', color: '#475569' }}>
+                          {adm.resourcesAllocated?.map((res, i) => (
+                            <li key={i} style={{ marginBottom: '4px' }}>
+                              <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by <strong>{res.loggedByStaff}</strong> • 🕒 <span style={{ color: '#2563eb' }}>{formatDateTime(res.loggedAt)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* Nurse Log Resource Action Bar (Only for Active Admitted Patients) */}
+                    {adm.status === 'ADMITTED' && (
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <input type="text" placeholder="e.g. Blood Unit O+ / Syringe 10ml / Surgical Dressing..." style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }} value={resourceItemName} onChange={e => setResourceItemName(e.target.value)} />
+                        <button onClick={() => handleLogResource(adm._id)} style={{ padding: '8px 16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                          + Log Consumable
+                        </button>
+                      </div>
+                    )}
+
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}

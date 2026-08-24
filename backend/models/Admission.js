@@ -2,11 +2,17 @@ const mongoose = require('mongoose');
 
 const admissionSchema = new mongoose.Schema({
     patientId: { type: String, required: true },
+    patientName: { type: String },
+    phoneNumber: { type: String },
+    age: { type: Number },
+    gender: { type: String },
+
     admittingDoctorId: { type: String, required: true },
+    admittingDoctorName: { type: String },
+    
     wardType: { 
         type: String, 
-        required: true,
-        enum: ['General Ward (Male)', 'General Ward (Female)', 'ICU', 'Post-Operative Care', 'Pediatric Ward']
+        required: true
     },
     bedNumber: { type: String, required: true }, // e.g. "BED-GW-12"
     diagnosis: { type: String },
@@ -26,7 +32,8 @@ const admissionSchema = new mongoose.Schema({
     },
     admittedAt: { type: Date, default: Date.now },
     dischargedAt: { type: Date },
-    dischargeSummary: { type: String }
+    dischargeSummary: { type: String },
+    dischargedByDoctorName: { type: String }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Admission', admissionSchema);
