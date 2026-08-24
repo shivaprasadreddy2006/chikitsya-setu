@@ -40,7 +40,7 @@ exports.createGrievance = async (req, res) => {
       grievance: newGrievance,
       whatsAppNotification: {
         recipient: phoneNumber,
-        message: `🚨 *Gandhi Hospital Grievance Cell*\nHello *${patientName}*,\nYour complaint [ID: *${newGrievance.grievanceId}*] regarding "${category}" has been registered.\n\n🔴 *Status:* SUBMITTED (Awaiting Admin Review)\nTrack live resolution on Chikitsya Setu: http://localhost:5173`
+        message: `🚨 *Hospital Vigilance & Anti-Corruption Cell*\nHello *${patientName}*,\nYour complaint [ID: *${newGrievance.grievanceId}*] regarding "${category}" has been registered.\n\n🔴 *Status:* SUBMITTED (Awaiting Admin Review)\nTrack live resolution on Chikitsya Setu: http://localhost:5173`
       }
     })
   } catch (error) {
@@ -97,7 +97,7 @@ exports.respondToGrievance = async (req, res) => {
       grievance,
       whatsAppNotification: {
         recipient: grievance.phoneNumber,
-        message: `🚨 *Gandhi Hospital Vigilance Update*\nHello *${grievance.patientName}*,\nYour complaint [ID: *${grievance.grievanceId}*] update:\n\n${statusEmoji}\n\n💬 *Official Admin Response:* "${grievance.adminReply || 'Action initiated by Medical Superintendent.'}"\n\n👉 *Please open the app to confirm if your issue was resolved satisfactorily!*`
+        message: `🚨 *Hospital Vigilance Update*\nHello *${grievance.patientName}*,\nYour complaint [ID: *${grievance.grievanceId}*] update:\n\n${statusEmoji}\n\n💬 *Official Admin Response:* "${grievance.adminReply || 'Action initiated by Medical Superintendent.'}"\n\n👉 *Please open the app to confirm if your issue was resolved satisfactorily!*`
       }
     })
   } catch (error) {
@@ -140,8 +140,8 @@ exports.confirmPatientResolution = async (req, res) => {
       whatsAppNotification: {
         recipient: grievance.phoneNumber,
         message: isResolved
-          ? `✅ *Gandhi Hospital Resolution Confirmed*\nThank you *${grievance.patientName}*!\nYou confirmed resolution for [ID: *${grievance.grievanceId}*]. Complaint closed with GREEN 🟢 status.`
-          : `⚠️ *Gandhi Hospital Vigilance Escalation*\nComplaint [ID: *${grievance.grievanceId}*] has been re-escalated to higher superintendent authority as unresolved.`
+          ? `✅ *Resolution Verified & Approved*\nThank you *${grievance.patientName}*!\nYou confirmed resolution for [ID: *${grievance.grievanceId}*]. Complaint officially closed with GREEN 🟢 status.`
+          : `⚠️ *Hospital Vigilance Escalation*\nComplaint [ID: *${grievance.grievanceId}*] has been re-escalated to higher superintendent authority as unresolved.`
       }
     })
   } catch (error) {

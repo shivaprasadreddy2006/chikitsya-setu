@@ -75,7 +75,7 @@ exports.getPatientFullFile = async (req, res) => {
             type: 'REGISTRATION',
             stage: 'O/P Registration & Token Generated',
             timestamp: patient.createdAt,
-            details: `Registered at Gandhi Hospital O/P Reception Desk. Assigned to initial physician (${doctor.name}, ${doctor.department}, Room 102).`,
+            details: `Registered at Hospital O/P Reception Desk. Assigned to initial physician (${doctor.name}, ${doctor.department}, Room 102).`,
             performedBy: 'O/P Desk Staff (STAFF-OP-01)',
             doctorName: doctor.name,
             doctorDepartment: doctor.department,

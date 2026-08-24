@@ -14,7 +14,7 @@ const getSavedSession = () => {
   return null
 }
 
-// Department Location Map in Gandhi Hospital
+// Department Location Map in Hospital
 const DEPARTMENT_LOCATIONS = {
   'General Medicine': { room: 'Room 102', block: 'OPD Block A (Ground Floor, Wing 1)' },
   'Cardiology': { room: 'Room 201', block: 'Specialty Wing C (2nd Floor)' },
@@ -24,20 +24,20 @@ const DEPARTMENT_LOCATIONS = {
   'General Surgery': { room: 'Room 108', block: 'Surgical Block (1st Floor)' }
 }
 
-// Preset Avatars for Instant Selection
+// Preset Avatars for Optional Patient Selection
 const PRESET_AVATARS = [
   { id: '1', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80', label: 'Male 1' },
   { id: '2', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80', label: 'Female 1' },
   { id: '3', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80', label: 'Male 2' },
   { id: '4', url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&auto=format&fit=crop&q=80', label: 'Female 2' },
   { id: '5', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&auto=format&fit=crop&q=80', label: 'Male Senior' },
-  { id: '6', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=80', label: 'Female Professional' },
-  { id: '7', url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80', label: 'Male Professional' },
+  { id: '6', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=80', label: 'Female Pro' },
+  { id: '7', url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80', label: 'Male Pro' },
   { id: '8', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80', label: 'Female 3' }
 ]
 
-// Fallback Default Avatar
-const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80'
+// Fallback Doctor Avatar
+const DEFAULT_DOC_AVATAR = 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80'
 
 // Helper: Format ISO Date string into beautiful Indian standard Date & Time
 const formatDateTime = (dateStr) => {
@@ -85,7 +85,7 @@ const generateMedicalPresetImage = (type, title, subtitle) => {
 
   ctx.fillStyle = '#ffffff'
   ctx.font = 'bold 20px sans-serif'
-  ctx.fillText('🏥 GANDHI HOSPITAL - VERIFIED DIGITAL EVIDENCE', 40, 58)
+  ctx.fillText('🏥 CHIKITSYA SETU - VERIFIED DIGITAL EVIDENCE', 40, 58)
 
   // Icon
   ctx.font = '48px sans-serif'
@@ -156,11 +156,6 @@ function App() {
   const [loginId, setLoginId] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
-  const [otpIdentifier, setOtpIdentifier] = useState('')
-  const [otpSent, setOtpSent] = useState(false)
-  const [enteredOtp, setEnteredOtp] = useState('')
-  const [otpInfo, setOtpInfo] = useState(null)
-  const [otpError, setOtpError] = useState('')
   const [patientFullFile, setPatientFullFile] = useState(null)
   const [patientTab, setPatientTab] = useState('overview')
   const [selectedDetailItem, setSelectedDetailItem] = useState(null)
@@ -184,7 +179,7 @@ function App() {
         name: currentUser.data.name || '',
         phoneNumber: currentUser.data.phoneNumber || '',
         password: currentUser.data.password || '',
-        photoUrl: currentUser.data.photoUrl || DEFAULT_AVATAR,
+        photoUrl: currentUser.data.photoUrl || '',
         age: currentUser.data.age || '',
         gender: currentUser.data.gender || 'Male'
       })
@@ -257,6 +252,7 @@ function App() {
     age: '',
     gender: 'Male',
     phoneNumber: '',
+    photoUrl: '',
     registrationDate: new Date().toISOString().slice(0, 16)
   })
   const [opTicket, setOpTicket] = useState(null)
@@ -329,6 +325,54 @@ function App() {
     }
   }, [])
 
+  // Helper function to render patient avatar or dynamic initials badge
+  const renderPatientAvatar = (patient, size = 42, border = '1.5px solid #cbd5e1') => {
+    if (patient?.photoUrl) {
+      return (
+        <img
+          src={patient.photoUrl}
+          alt={patient.name || 'Patient'}
+          style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            borderRadius: '50%',
+            objectFit: 'cover',
+            border,
+            flexShrink: 0
+          }}
+        />
+      )
+    }
+    const initials = patient?.name
+      ? patient.name
+          .split(' ')
+          .map(n => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2)
+      : 'PT'
+    return (
+      <div
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+          color: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: '800',
+          fontSize: `${Math.round(size * 0.38)}px`,
+          border,
+          flexShrink: 0,
+          boxShadow: '0 2px 8px rgba(30,58,138,0.25)'
+        }}>
+        {initials}
+      </div>
+    )
+  }
+
   // Camera Handlers
   const startWebcam = async () => {
     setCameraError('')
@@ -364,7 +408,7 @@ function App() {
     ctx.fillRect(10, canvas.height - 40, canvas.width - 20, 30)
     ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 13px sans-serif'
-    ctx.fillText(`🏥 GANDHI HOSPITAL AUDIT PROOF | ${new Date().toLocaleString('en-IN')}`, 20, canvas.height - 20)
+    ctx.fillText(`🏥 CHIKITSYA SETU AUDIT PROOF | ${new Date().toLocaleString('en-IN')}`, 20, canvas.height - 20)
 
     const base64 = canvas.toDataURL('image/jpeg', 0.85)
     setCapturedPhotoPreview(base64)
@@ -430,7 +474,7 @@ function App() {
     ctx.fillRect(10, canvas.height - 40, canvas.width - 20, 30)
     ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 13px sans-serif'
-    ctx.fillText(`🚨 GANDHI HOSPITAL GRIEVANCE EVIDENCE | ${new Date().toLocaleString('en-IN')}`, 20, canvas.height - 20)
+    ctx.fillText(`🚨 CHIKITSYA SETU GRIEVANCE EVIDENCE | ${new Date().toLocaleString('en-IN')}`, 20, canvas.height - 20)
 
     const base64 = canvas.toDataURL('image/jpeg', 0.85)
     setGrievanceForm({ ...grievanceForm, mediaType: 'photo', mediaUrl: base64 })
@@ -499,24 +543,28 @@ function App() {
         mediaUrl: ''
       })
       fetchPatientGrievances(currentUser.data.patientId)
+      fetchAllHospitalGrievances()
       stopGrievanceCamera()
     } catch (err) {
       setGrievanceMessage(`⚠️ ${err.response?.data?.message || 'Failed to submit grievance.'}`)
     }
   }
 
+  // Patient Confirms Resolution & Instantly Syncs with Admin & Patient Views
   const handlePatientConfirmResolution = async (grievanceId, isResolved) => {
     try {
       const res = await axios.put(`${API_BASE}/grievances/patient-confirm/${grievanceId}`, {
         isResolved,
-        feedback: isResolved ? 'Verified & satisfied with action taken.' : 'Issue still pending on the ground.',
-        reopenReason: isResolved ? '' : 'Patient reported issue is still pending.'
+        feedback: isResolved ? 'Verified & satisfied with action taken on the ground.' : 'Issue still pending on the ground.',
+        reopenReason: isResolved ? '' : 'Patient indicated that issue remains unresolved on the ground.'
       })
       if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
+      
+      // Real-time synchronization across both Patient and Admin datasets
       if (currentUser?.data?.patientId) {
-        fetchPatientGrievances(currentUser.data.patientId)
+        await fetchPatientGrievances(currentUser.data.patientId)
       }
-      fetchAllHospitalGrievances()
+      await fetchAllHospitalGrievances()
     } catch (err) {
       console.error('Error confirming resolution:', err)
     }
@@ -569,7 +617,10 @@ function App() {
         adminRepliedBy: 'Chief Medical Superintendent (Hospital Vigilance)'
       })
       if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
-      fetchAllHospitalGrievances()
+      await fetchAllHospitalGrievances()
+      if (currentUser?.role === 'patient' && currentUser.data?.patientId) {
+        await fetchPatientGrievances(currentUser.data.patientId)
+      }
       setSelectedAdminGrievance(null)
       setAdminGrievanceReplyText('')
     } catch (err) { console.error(err) }
@@ -669,7 +720,7 @@ function App() {
   const handleOpStaffLogin = (e) => {
     e.preventDefault()
     setStaffLoginError('')
-    if (opStaffUser.trim() === 'op_staff' && opStaffPass.trim() === 'gandhi2026') {
+    if (opStaffUser.trim() === 'op_staff' && (opStaffPass.trim() === 'setu2026' || opStaffPass.trim() === 'gandhi2026')) {
       persistLogin('op-desk', { name: 'O/P Receptionist (Desk #1)', staffId: 'STAFF-OP-01' })
       setOpStaffUser('')
       setOpStaffPass('')
@@ -723,6 +774,7 @@ function App() {
     fetchPatientsList()
   }
 
+  // O/P Desk Registration with Optional Live Photo Capture
   const handleOpRegister = async (e) => {
     e.preventDefault()
     setOpError('')
@@ -736,6 +788,7 @@ function App() {
         age: '',
         gender: 'Male',
         phoneNumber: '',
+        photoUrl: '',
         registrationDate: new Date().toISOString().slice(0, 16)
       })
       fetchHospitalStats()
@@ -855,7 +908,7 @@ function App() {
 
   const activeDoctorName = resolvedDoctor?.name || latestReferral?.toDoctorName || 'Dr. Suresh Patel'
   const activeDoctorDept = resolvedDoctor?.department || latestReferral?.toDepartment || 'Orthopedics'
-  const activeDoctorPhoto = resolvedDoctor?.photoUrl || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80'
+  const activeDoctorPhoto = resolvedDoctor?.photoUrl || DEFAULT_DOC_AVATAR
   const activeDoctorLocation = patientFullFile?.doctorLocation || DEPARTMENT_LOCATIONS[activeDoctorDept] || { room: 'Room 204', block: 'Trauma Wing (2nd Floor)' }
 
   const displayedDoctorPatients = (() => {
@@ -957,7 +1010,7 @@ function App() {
   const roleTheme = getRoleTheme(currentUser?.role)
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', color: '#070e1e', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: currentUser ? '#f1f5f9' : '#070e1e', color: currentUser ? '#070e1e' : '#ffffff', display: 'flex', flexDirection: 'column' }}>
       
       {/* NOTIFICATION TOAST */}
       {whatsAppNotification && (
@@ -969,10 +1022,10 @@ function App() {
           color: '#ffffff',
           padding: '18px 22px',
           borderRadius: '20px',
-          boxShadow: '0 20px 40px -8px rgba(0,0,0,0.4)',
+          boxShadow: '0 20px 40px -8px rgba(0,0,0,0.5)',
           maxWidth: '380px',
           zIndex: 99999,
-          border: '1px solid #1e293b'
+          border: '1px solid #1e3a8a'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -989,149 +1042,299 @@ function App() {
       )}
 
       {/* ========================================================================= */}
-      {/* 1. BEFORE LOGIN: ROYAL TOP NAVBAR ONLY & PUBLIC HERO LANDING PAGE */}
+      {/* 1. BEFORE LOGIN: UNIFIED ROYAL MIDNIGHT LANDING PAGE & INTERACTIVE PPT */}
       {/* ========================================================================= */}
       {!currentUser && (
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#070e1e', background: 'radial-gradient(circle at 50% 0%, #0f1c3f 0%, #070e1e 70%)', color: '#ffffff' }}>
           
           {/* Top Navbar */}
           <header style={{
-            backgroundColor: '#070e1e',
-            borderBottom: '1px solid #1e293b',
+            backgroundColor: 'rgba(7, 14, 30, 0.85)',
+            backdropFilter: 'blur(16px)',
+            borderBottom: '1px solid rgba(30, 58, 138, 0.4)',
             padding: '18px 48px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
             position: 'sticky',
             top: 0,
             zIndex: 100
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', boxShadow: '0 0 20px rgba(30,64,175,0.4)' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', boxShadow: '0 0 24px rgba(37,99,235,0.5)' }}>
                 🏥
               </div>
               <div>
                 <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.03em' }}>
                   Chikitsya Setu
                 </h1>
-                <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '700', letterSpacing: '0.6px' }}>GANDHI HOSPITAL TRANSPARENCY ECOSYSTEM</span>
+                <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: '700', letterSpacing: '0.8px' }}>PUBLIC HEALTHCARE TRANSPARENCY ECOSYSTEM</span>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8', fontSize: '13px', fontWeight: '600' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38bdf8', fontSize: '13px', fontWeight: '700', backgroundColor: 'rgba(15, 28, 63, 0.8)', padding: '6px 14px', borderRadius: '9999px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }}></span>
-                Gandhi Hospital Live Network
+                Live Hospital Network Active
               </div>
 
               <button
                 onClick={() => { fetchPatientsList(); setShowLoginModal(true); }}
                 style={{
                   padding: '12px 28px',
-                  background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+                  background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
                   color: '#ffffff',
-                  border: 'none',
+                  border: '1px solid rgba(59, 130, 246, 0.5)',
                   borderRadius: '9999px',
                   fontSize: '14px',
                   fontWeight: '800',
                   cursor: 'pointer',
-                  boxShadow: '0 6px 20px rgba(30, 64, 175, 0.4)'
+                  boxShadow: '0 8px 24px rgba(37, 99, 235, 0.45)',
+                  transition: 'all 0.3s ease'
                 }}>
                 🔐 Access Portals ➔
               </button>
             </div>
           </header>
 
-          {/* Hero Section */}
-          <main style={{ flex: 1, padding: '48px 24px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <div style={{ width: '100%', maxWidth: '1120px' }}>
+          {/* MAIN PRESENTATION BODY (UNIFIED THEME + INTERACTIVE SLIDES) */}
+          <main style={{ flex: 1, padding: '48px 24px', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: '100%', maxWidth: '1160px' }}>
               
-              {/* Grand Royal Hero Banner */}
-              <div className="royal-card animate-fade-in" style={{ padding: '56px 48px', borderRadius: '28px', textAlign: 'center', marginBottom: '36px', background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)', border: '1px solid #cbd5e1' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '9999px', fontSize: '13px', color: '#1d4ed8', fontWeight: '800', marginBottom: '22px' }}>
-                  <span>👑</span> Secunderabad Tertiary Government Hospital
+              {/* SLIDE 1: EXECUTIVE HERO BANNER */}
+              <div className="animate-fade-in" style={{
+                padding: '56px 44px',
+                borderRadius: '28px',
+                textAlign: 'center',
+                marginBottom: '40px',
+                background: 'linear-gradient(180deg, rgba(15, 28, 63, 0.85) 0%, rgba(7, 14, 30, 0.95) 100%)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
+              }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 22px', backgroundColor: 'rgba(30, 58, 138, 0.4)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '9999px', fontSize: '13px', color: '#93c5fd', fontWeight: '800', marginBottom: '22px' }}>
+                  <span>👑</span> Sovereign Public Healthcare Transformation Framework
                 </div>
 
-                <h2 style={{ fontSize: '38px', color: '#070e1e', margin: '0 0 18px 0', fontWeight: '800', letterSpacing: '-0.03em', lineHeight: '1.2' }}>
-                  Public Healthcare Transparency & Anti-Corruption Engine
+                <h2 style={{ fontSize: '42px', color: '#ffffff', margin: '0 0 20px 0', fontWeight: '800', letterSpacing: '-0.03em', lineHeight: '1.2' }}>
+                  Zero-Corruption Healthcare Engine <br/>
+                  <span style={{ background: 'linear-gradient(90deg, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                    for Government Tertiary Hospitals
+                  </span>
                 </h2>
 
-                <p style={{ fontSize: '16px', color: '#475569', maxWidth: '780px', margin: '0 auto 32px auto', lineHeight: '1.65' }}>
-                  Serving 3,500+ daily outpatients and 1,200+ inpatient beds. Chikitsya Setu provides an end-to-end digital accountability framework to stop illegal bribery, eliminate doctor cherry-picking, and track every single pharmaceutical supply.
+                <p style={{ fontSize: '16px', color: '#94a3b8', maxWidth: '820px', margin: '0 auto 36px auto', lineHeight: '1.7' }}>
+                  Designed specifically to dismantle middlemen extortion, stop medicine diversion, enforce doctor punctuality, and restore dignity to poor citizens receiving free public healthcare.
                 </p>
 
                 {/* Animated Stat Badges */}
-                <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '36px' }}>
-                  <span style={{ padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '38px' }}>
+                  <span style={{ padding: '10px 20px', backgroundColor: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#e2e8f0' }}>
                     🏥 1,200+ Bed Inpatient Capacity
                   </span>
-                  <span style={{ padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                  <span style={{ padding: '10px 20px', backgroundColor: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#e2e8f0' }}>
                     👥 3,500+ Daily Outpatients
                   </span>
-                  <span style={{ padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
-                    🚨 24/7 Emergency Triage
+                  <span style={{ padding: '10px 20px', backgroundColor: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#e2e8f0' }}>
+                    🚨 24/7 Citizen Vigilance Cell
                   </span>
-                  <span style={{ padding: '10px 20px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#065f46' }}>
+                  <span style={{ padding: '10px 20px', backgroundColor: 'rgba(6, 78, 59, 0.4)', border: '1px solid rgba(16, 185, 129, 0.4)', borderRadius: '9999px', fontSize: '13px', fontWeight: '800', color: '#34d399' }}>
                     ✅ 100% Free Public Health Policy
                   </span>
                 </div>
 
-                {/* Live KPI Metric Grid */}
+                {/* Live Real-time Stats Grid */}
                 {hospitalStats && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '18px', textAlign: 'center' }}>
-                    <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #cbd5e1', background: '#ffffff' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#070e1e' }}>{hospitalStats.totalPatients}</div>
-                      <div style={{ fontSize: '13px', color: '#64748b', marginTop: '6px', fontWeight: '700' }}>Patients Registered</div>
+                    <div style={{ padding: '24px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15, 23, 42, 0.7)' }}>
+                      <div style={{ fontSize: '34px', fontWeight: '800', color: '#ffffff' }}>{hospitalStats.totalPatients}</div>
+                      <div style={{ fontSize: '13px', color: '#94a3b8', marginTop: '6px', fontWeight: '700' }}>Patients Registered</div>
                     </div>
-                    <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #bfdbfe', background: '#eff6ff' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#1d4ed8' }}>{hospitalStats.totalDoctors}</div>
-                      <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '6px', fontWeight: '700' }}>Doctors On Shift</div>
+                    <div style={{ padding: '24px', borderRadius: '20px', border: '1px solid rgba(59, 130, 246, 0.3)', background: 'rgba(30, 58, 138, 0.25)' }}>
+                      <div style={{ fontSize: '34px', fontWeight: '800', color: '#60a5fa' }}>{hospitalStats.totalDoctors}</div>
+                      <div style={{ fontSize: '13px', color: '#93c5fd', marginTop: '6px', fontWeight: '700' }}>Doctors On Shift</div>
                     </div>
-                    <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #fde68a', background: '#fffbeb' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#b45309' }}>{hospitalStats.pendingLabs}</div>
-                      <div style={{ fontSize: '13px', color: '#92400e', marginTop: '6px', fontWeight: '700' }}>Diagnostic Orders</div>
+                    <div style={{ padding: '24px', borderRadius: '20px', border: '1px solid rgba(245, 158, 11, 0.3)', background: 'rgba(180, 83, 9, 0.2)' }}>
+                      <div style={{ fontSize: '34px', fontWeight: '800', color: '#fbbf24' }}>{hospitalStats.pendingLabs}</div>
+                      <div style={{ fontSize: '13px', color: '#fde68a', marginTop: '6px', fontWeight: '700' }}>Diagnostic Orders</div>
                     </div>
-                    <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #a7f3d0', background: '#ecfdf5' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#047857' }}>{hospitalStats.transparencyScore}</div>
-                      <div style={{ fontSize: '13px', color: '#065f46', marginTop: '6px', fontWeight: '700' }}>Integrity Index</div>
+                    <div style={{ padding: '24px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.3)', background: 'rgba(4, 120, 87, 0.2)' }}>
+                      <div style={{ fontSize: '34px', fontWeight: '800', color: '#34d399' }}>{hospitalStats.transparencyScore}</div>
+                      <div style={{ fontSize: '13px', color: '#a7f3d0', marginTop: '6px', fontWeight: '700' }}>Integrity Index</div>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* 3 Pillars of Reform */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '22px' }}>
-                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #cbd5e1' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#eff6ff', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>⚖️</div>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#1e3a8a', fontWeight: '800' }}>1. Zero Neglect</h4>
-                  <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.6' }}>
-                    Eliminates doctor cherry-picking. Smart load-balancing algorithms distribute outpatients automatically across doctors with shortest queues.
-                  </p>
+              {/* SLIDE 2: THE GROUND REALITY (THE PROBLEMS WE ARE ELIMINATING) */}
+              <div style={{ marginBottom: '44px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#f87171', letterSpacing: '1px', textTransform: 'uppercase' }}>Current Broken State in Public Healthcare</span>
+                  <h3 style={{ fontSize: '28px', margin: '6px 0 0 0', fontWeight: '800' }}>Why Public Hospitals Fail & How Corruption Happens</h3>
                 </div>
 
-                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #cbd5e1' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#ecfdf5', color: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>🚫</div>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#065f46', fontWeight: '800' }}>2. Zero Exploitation</h4>
-                  <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.6' }}>
-                    No more paying bribes to lab attendants. All diagnostic findings are published directly to the patient's phone with live camera proofs.
-                  </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '18px' }}>
+                  <div style={{ padding: '24px', borderRadius: '20px', background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '12px' }}>🛑</div>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#fca5a5', fontWeight: '800' }}>Doctor Cherry-Picking</h4>
+                    <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, lineHeight: '1.5' }}>
+                      Senior doctors skip shifts or leave queues crowded, while patients wait 5+ hours with zero visibility into queue progression.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '24px', borderRadius: '20px', background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '12px' }}>💸</div>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#fde68a', fontWeight: '800' }}>Diagnostic Bribes</h4>
+                    <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, lineHeight: '1.5' }}>
+                      Attendants intentionally delay paper test results to solicit illegal speed money from vulnerable families.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '24px', borderRadius: '20px', background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(168, 85, 247, 0.25)' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '12px' }}>📦</div>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#d8b4fe', fontWeight: '800' }}>Medicine Black-Market</h4>
+                    <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, lineHeight: '1.5' }}>
+                      Free government medicines are claimed on paper but diverted to private pharmacies, leaving poor patients with "Out of Stock".
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '24px', borderRadius: '20px', background: 'rgba(15, 23, 42, 0.65)', border: '1px solid rgba(59, 130, 246, 0.25)' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '12px' }}>🔇</div>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', color: '#93c5fd', fontWeight: '800' }}>Grievance Impunity</h4>
+                    <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0, lineHeight: '1.5' }}>
+                      Complaint boxes are ignored. Hospital authorities close corruption reports unilaterally without patient consent or verification.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* SLIDE 3: THE 6 PILLARS OF REFORM (INTERACTIVE DEEP DIVE) */}
+              <div style={{ marginBottom: '44px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8', letterSpacing: '1px', textTransform: 'uppercase' }}>The Architectural Blueprint</span>
+                  <h3 style={{ fontSize: '28px', margin: '6px 0 0 0', fontWeight: '800' }}>6 Structural Reforms Delivered by Chikitsya Setu</h3>
                 </div>
 
-                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #cbd5e1' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>📦</div>
-                  <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#92400e', fontWeight: '800' }}>3. Zero Leakage</h4>
-                  <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.6' }}>
-                    Every syringe, IV cannula, and medicine is tracked digitally to the patient's bed ledger before discharge, stopping black-market diversion.
-                  </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '22px' }}>
+                  
+                  <div style={{ padding: '28px', borderRadius: '22px', background: 'rgba(15, 28, 63, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: 'rgba(37,99,235,0.3)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>⚖️</div>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#93c5fd', fontWeight: '800' }}>1. Equal-Queue Load Balancer</h4>
+                    <p style={{ fontSize: '13.5px', color: '#cbd5e1', margin: 0, lineHeight: '1.6' }}>
+                      Automated algorithm assigns outpatients equally across duty doctors with the shortest queue. Eliminates favoritism and stops doctors from cherry-picking light cases.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '28px', borderRadius: '22px', background: 'rgba(15, 28, 63, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: 'rgba(16, 185, 129, 0.3)', color: '#34d399', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>📸</div>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#6ee7b7', fontWeight: '800' }}>2. Photo-Verified Diagnostic Chain</h4>
+                    <p style={{ fontSize: '13.5px', color: '#cbd5e1', margin: 0, lineHeight: '1.6' }}>
+                      Mandatory live camera snapshot of sample vials and report sheets directly published to the patient's WhatsApp/phone. Zero extortion by lab attendants.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '28px', borderRadius: '22px', background: 'rgba(15, 28, 63, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: 'rgba(245, 158, 11, 0.3)', color: '#fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>💊</div>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#fde68a', fontWeight: '800' }}>3. Tamper-Proof Pharmacy Ledger</h4>
+                    <p style={{ fontSize: '13.5px', color: '#cbd5e1', margin: 0, lineHeight: '1.6' }}>
+                      Pharmacists must snap the medicine pack during patient handover. Every batch is stamped digitally, stopping diversion to external private markets.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '28px', borderRadius: '22px', background: 'rgba(15, 28, 63, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: 'rgba(168, 85, 247, 0.3)', color: '#c084fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>🛏️</div>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#e9d5ff', fontWeight: '800' }}>4. Bedside Consumable Tracking</h4>
+                    <p style={{ fontSize: '13.5px', color: '#cbd5e1', margin: 0, lineHeight: '1.6' }}>
+                      Every IV cannula, syringe, and antibiotic vial administered in wards is recorded on the patient's digital bed ledger with staff accountability logs before discharge.
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '28px', borderRadius: '22px', background: 'rgba(15, 28, 63, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: 'rgba(239, 68, 68, 0.3)', color: '#f87171', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>🚨</div>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#fca5a5', fontWeight: '800' }}>5. Citizen-Consent Vigilance</h4>
+                    <p style={{ fontSize: '13.5px', color: '#cbd5e1', margin: 0, lineHeight: '1.6' }}>
+                      Patients can record live video/photo grievances of corruption. Crucially: Admin CANNOT unilaterally mark a complaint Green 🟢 without the patient's ground verification!
+                    </p>
+                  </div>
+
+                  <div style={{ padding: '28px', borderRadius: '22px', background: 'rgba(15, 28, 63, 0.6)', border: '1px solid rgba(56, 189, 248, 0.25)', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: 'rgba(56, 189, 248, 0.3)', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>📱</div>
+                    <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#bae6fd', fontWeight: '800' }}>6. Direct SMS & WhatsApp EHR</h4>
+                    <p style={{ fontSize: '13.5px', color: '#cbd5e1', margin: 0, lineHeight: '1.6' }}>
+                      Every token, room location, test result, and prescription is sent in real-time to the citizen's phone via Fast2SMS and WhatsApp, eliminating confusion.
+                    </p>
+                  </div>
+
                 </div>
+              </div>
+
+              {/* SLIDE 4: FULL HOSPITAL LIFECYCLE MAP */}
+              <div style={{
+                padding: '36px',
+                borderRadius: '24px',
+                background: 'linear-gradient(180deg, rgba(15, 28, 63, 0.7) 0%, rgba(7, 14, 30, 0.9) 100%)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                marginBottom: '44px'
+              }}>
+                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '800', color: '#38bdf8', letterSpacing: '1px', textTransform: 'uppercase' }}>End-to-End Transparency Loop</span>
+                  <h3 style={{ fontSize: '24px', margin: '4px 0 0 0', fontWeight: '800' }}>Chronological Patient Accountability Flow</h3>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', textAlign: 'center' }}>
+                  <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: '24px' }}>🎫</div>
+                    <strong style={{ fontSize: '13px', display: 'block', margin: '6px 0 2px 0' }}>1. O/P Desk</strong>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>Auto Load-Balance Token + SMS</span>
+                  </div>
+                  <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: '24px' }}>👨‍⚕️</div>
+                    <strong style={{ fontSize: '13px', display: 'block', margin: '6px 0 2px 0' }}>2. Doctor Desk</strong>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>Clinical Exam + Direct Lab/Rx</span>
+                  </div>
+                  <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: '24px' }}>🔬</div>
+                    <strong style={{ fontSize: '13px', display: 'block', margin: '6px 0 2px 0' }}>3. Diagnostic Lab</strong>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>Photo-Verified Report Release</span>
+                  </div>
+                  <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: '24px' }}>💊</div>
+                    <strong style={{ fontSize: '13px', display: 'block', margin: '6px 0 2px 0' }}>4. Pharmacy</strong>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>Camera-Stamped Handover</span>
+                  </div>
+                  <div style={{ padding: '16px', borderRadius: '16px', background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ fontSize: '24px' }}>🏁</div>
+                    <strong style={{ fontSize: '13px', display: 'block', margin: '6px 0 2px 0' }}>5. Discharge / Audit</strong>
+                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>Permanent Timeline Archive</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* SLIDE 5: DIRECT ACCESS PORTALS CTA */}
+              <div style={{ textAlign: 'center', padding: '40px', borderRadius: '28px', background: 'linear-gradient(135deg, rgba(30,58,138,0.5) 0%, rgba(7,14,30,0.9) 100%)', border: '1px solid rgba(59,130,246,0.4)' }}>
+                <h3 style={{ fontSize: '28px', fontWeight: '800', margin: '0 0 12px 0' }}>Ready to Experience Public Healthcare Accountability?</h3>
+                <p style={{ fontSize: '15px', color: '#94a3b8', margin: '0 0 24px 0' }}>Log in to any station role to test real-time patient queues, live photo proofs, or grievance governance.</p>
+                <button
+                  onClick={() => { fetchPatientsList(); setShowLoginModal(true); }}
+                  style={{
+                    padding: '16px 40px',
+                    background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '9999px',
+                    fontSize: '16px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 10px 30px rgba(37,99,235,0.5)'
+                  }}>
+                  🚀 Launch Station Portals Now ➔
+                </button>
               </div>
 
             </div>
           </main>
 
-          <footer style={{ backgroundColor: '#070e1e', borderTop: '1px solid #1e293b', color: '#94a3b8', textAlign: 'center', padding: '24px', fontSize: '13px' }}>
-            &copy; 2026 Chikitsya Setu - Gandhi Hospital Public Healthcare Transparency Engine
+          <footer style={{ backgroundColor: '#070e1e', borderTop: '1px solid rgba(30,58,138,0.3)', color: '#64748b', textAlign: 'center', padding: '28px', fontSize: '13px' }}>
+            &copy; 2026 Chikitsya Setu - Sovereign Public Healthcare Transparency & Anti-Corruption Framework
           </footer>
         </div>
       )}
@@ -1167,25 +1370,14 @@ function App() {
               </div>
               <div>
                 <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.02em' }}>Chikitsya Setu</h2>
-                <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '700', letterSpacing: '0.5px' }}>GANDHI HOSPITAL</span>
+                <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '700', letterSpacing: '0.5px' }}>HEALTHCARE PLATFORM</span>
               </div>
             </div>
 
-            {/* User Profile Card with Live Photo Avatar */}
+            {/* User Profile Card with Live Photo Avatar or Initials */}
             <div style={{ backgroundColor: '#0f172a', border: `1px solid ${roleTheme.accent}44`, borderRadius: '16px', padding: '14px', marginBottom: '22px', boxShadow: '0 4px 14px rgba(0,0,0,0.3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <img
-                  src={currentUser.data?.photoUrl || DEFAULT_AVATAR}
-                  alt="Profile"
-                  style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '50%',
-                    objectFit: 'cover',
-                    border: `2px solid ${roleTheme.accent}`,
-                    boxShadow: `0 0 8px ${roleTheme.accent}66`
-                  }}
-                />
+                {renderPatientAvatar(currentUser.data, 38, `2px solid ${roleTheme.accent}`)}
                 <div style={{ overflow: 'hidden' }}>
                   <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: '800', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                     {currentUser.data?.name || roleTheme.name}
@@ -1382,7 +1574,7 @@ function App() {
               boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
             }}>
               <div>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Gandhi Hospital Platform</span>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Hospital Operational Console</span>
                 <div style={{ fontSize: '16px', fontWeight: '800', color: roleTheme.accent }}>
                   {roleTheme.name}
                 </div>
@@ -1405,23 +1597,12 @@ function App() {
               {currentUser.role === 'patient' && (
                 <div style={{ width: '100%', maxWidth: '920px' }}>
                   
-                  {/* Header Card with Patient Photo Avatar */}
+                  {/* Header Card with Patient Photo Avatar or Initials */}
                   <div className="royal-card animate-fade-in" style={{ padding: '24px 30px', marginBottom: '24px', borderLeft: `6px solid ${roleTheme.accent}` }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <div style={{ position: 'relative' }}>
-                          <img
-                            src={currentUser.data.photoUrl || DEFAULT_AVATAR}
-                            alt="Patient Avatar"
-                            style={{
-                              width: '64px',
-                              height: '64px',
-                              borderRadius: '50%',
-                              objectFit: 'cover',
-                              border: '3px solid #1e3a8a',
-                              boxShadow: '0 4px 14px rgba(30,58,138,0.2)'
-                            }}
-                          />
+                          {renderPatientAvatar(currentUser.data, 64, '3px solid #1e3a8a')}
                           <button
                             onClick={() => setPatientTab('settings')}
                             style={{
@@ -1657,7 +1838,7 @@ function App() {
                           <span style={{ fontSize: '24px' }}>🚨</span>
                           <div>
                             <h3 style={{ margin: '0 0 2px 0', color: '#9f1239', fontSize: '16px', fontWeight: '800' }}>
-                              Gandhi Hospital Anti-Corruption & Vigilance Cell
+                              Hospital Anti-Corruption & Vigilance Cell
                             </h3>
                             <p style={{ margin: 0, fontSize: '13px', color: '#881337' }}>
                               Record live video or camera evidence of bribery, delay, or doctor absence. Directly reviewed by the Superintendent.
@@ -1878,7 +2059,7 @@ function App() {
                     </div>
                   )}
 
-                  {/* TAB 6: ⚙️ MY PROFILE & ACCOUNT SETTINGS (NEW USER FEATURE) */}
+                  {/* TAB 6: ⚙️ MY PROFILE & ACCOUNT SETTINGS */}
                   {patientTab === 'settings' && (
                     <div className="animate-fade-in">
                       <div className="royal-card" style={{ padding: '32px', marginBottom: '20px' }}>
@@ -1904,22 +2085,11 @@ function App() {
                           {/* Profile Photo Customizer */}
                           <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '18px', border: '1px solid #cbd5e1', marginBottom: '24px' }}>
                             <label style={{ fontSize: '13px', fontWeight: '800', color: '#070e1e', display: 'block', marginBottom: '10px' }}>
-                              📸 Profile Photo Avatar:
+                              📸 Profile Photo:
                             </label>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-                              <img
-                                src={patientEditForm.photoUrl || DEFAULT_AVATAR}
-                                alt="Current Profile"
-                                style={{
-                                  width: '80px',
-                                  height: '80px',
-                                  borderRadius: '50%',
-                                  objectFit: 'cover',
-                                  border: '3px solid #1e3a8a',
-                                  boxShadow: '0 4px 14px rgba(30,58,138,0.25)'
-                                }}
-                              />
+                              {renderPatientAvatar(patientEditForm, 76, '3px solid #1e3a8a')}
 
                               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                 <button
@@ -1964,6 +2134,24 @@ function App() {
                                   }}>
                                   <span>🎭</span> Choose Preset Avatar
                                 </button>
+
+                                {patientEditForm.photoUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPatientEditForm({ ...patientEditForm, photoUrl: '' })}
+                                    style={{
+                                      padding: '10px 14px',
+                                      backgroundColor: '#fee2e2',
+                                      color: '#991b1b',
+                                      border: '1px solid #fecaca',
+                                      borderRadius: '9999px',
+                                      fontSize: '12px',
+                                      fontWeight: '700',
+                                      cursor: 'pointer'
+                                    }}>
+                                    Remove Photo (Use Initials)
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2101,7 +2289,7 @@ function App() {
                   {/* Doctor View Workspace */}
                   <div style={{ display: 'grid', gridTemplateColumns: activePatientForExam ? '1fr 1.3fr' : '1fr', gap: '20px' }}>
                     
-                    {/* Patient Queue with Patient Photo Thumbnails */}
+                    {/* Patient Queue with Real Patient Photos / Badges */}
                     <div className="royal-card" style={{ padding: '24px' }}>
                       <h3 style={{ margin: '0 0 14px 0', fontSize: '15px', fontWeight: '800' }}>
                         {doctorViewFilter === 'waiting' && `⏳ Patients in Waiting Queue (${displayedDoctorPatients.length})`}
@@ -2113,7 +2301,7 @@ function App() {
                         {displayedDoctorPatients.map((p, i) => (
                           <div key={p.patientId} onClick={() => inspectPatientTimeline(p)} className="royal-card royal-card-interactive" style={{ border: activePatientForExam?.patientId === p.patientId ? '2px solid #4338ca' : '1px solid #cbd5e1', padding: '12px 14px', backgroundColor: activePatientForExam?.patientId === p.patientId ? '#eef2ff' : '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                              {renderPatientAvatar(p, 36, '1px solid #cbd5e1')}
                               <div>
                                 <strong style={{ fontSize: '14px' }}>#{i + 1} {p.name}</strong>
                                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{p.patientId} • {p.age}y {p.gender}</div>
@@ -2132,7 +2320,7 @@ function App() {
                       <div className="royal-card" style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '12px', marginBottom: '14px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <img src={activePatientForExam.photoUrl || DEFAULT_AVATAR} alt={activePatientForExam.name} style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4338ca' }} />
+                            {renderPatientAvatar(activePatientForExam, 44, '2px solid #4338ca')}
                             <div>
                               <span style={{ fontSize: '11px', color: '#4338ca', fontWeight: '800' }}>Active Examination File</span>
                               <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '800' }}>{activePatientForExam.name} ({activePatientForExam.patientId})</h3>
@@ -2286,20 +2474,35 @@ function App() {
                 </div>
               )}
 
-              {/* 2.6 O/P DESK VIEWPORT */}
+              {/* 2.6 O/P DESK VIEWPORT WITH DIRECT PHOTO CAPTURE */}
               {currentUser.role === 'op-desk' && (
-                <div style={{ width: '100%', maxWidth: '600px' }} className="animate-fade-in">
+                <div style={{ width: '100%', maxWidth: '640px' }} className="animate-fade-in">
                   <div className="royal-card" style={{ padding: '32px', borderLeft: '6px solid #b45309' }}>
                     <h2 style={{ margin: '0 0 4px 0', fontSize: '20px' }}>🎫 O/P Registration Desk</h2>
-                    <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '13px' }}>Create new outpatient record and send credentials via WhatsApp.</p>
+                    <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '13px' }}>Create new outpatient record with optional live photo snapshot.</p>
+
+                    {opTicket && (
+                      <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#ecfdf5', borderRadius: '16px', border: '1px solid #a7f3d0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                          {renderPatientAvatar(opTicket.patient, 40, '2px solid #047857')}
+                          <div>
+                            <strong style={{ color: '#065f46', fontSize: '14px' }}>Registration Successful!</strong>
+                            <div style={{ fontSize: '12px', color: '#047857' }}>ID: <strong>{opTicket.credentials?.patientId}</strong> | PIN: <strong>{opTicket.credentials?.password}</strong></div>
+                          </div>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#065f46' }}>
+                          Assigned to: <strong>{opTicket.assignedTo?.doctorName}</strong> (Room 102)
+                        </div>
+                      </div>
+                    )}
 
                     <form onSubmit={handleOpRegister}>
-                      <div style={{ marginBottom: '12px' }}>
+                      <div style={{ marginBottom: '14px' }}>
                         <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Patient Full Name</label>
                         <input required type="text" placeholder="e.g. Rahul Sharma" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opForm.name} onChange={e => setOpForm({...opForm, name: e.target.value})} />
                       </div>
 
-                      <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
                         <div style={{ flex: 1 }}>
                           <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Age</label>
                           <input required type="number" placeholder="42" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opForm.age} onChange={e => setOpForm({...opForm, age: e.target.value})} />
@@ -2314,9 +2517,56 @@ function App() {
                         </div>
                       </div>
 
-                      <div style={{ marginBottom: '16px' }}>
+                      <div style={{ marginBottom: '14px' }}>
                         <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>WhatsApp Mobile Number</label>
                         <input required type="tel" placeholder="e.g. 9876543210" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opForm.phoneNumber} onChange={e => setOpForm({...opForm, phoneNumber: e.target.value})} />
+                      </div>
+
+                      {/* Photo Capture at Registration */}
+                      <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '14px', border: '1px solid #cbd5e1', marginBottom: '18px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                          📸 Patient Photo Snapshot (Optional):
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {renderPatientAvatar(opForm, 48, '2px solid #b45309')}
+                          <button
+                            type="button"
+                            onClick={() => openCameraModal(
+                              '📸 Patient Registration Photo',
+                              'op-register',
+                              'NEW_PATIENT',
+                              (photo) => setOpForm({ ...opForm, photoUrl: photo })
+                            )}
+                            style={{
+                              padding: '8px 14px',
+                              backgroundColor: '#070e1e',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '9999px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}>
+                            <span>📷</span> Snap Patient Photo
+                          </button>
+                          {opForm.photoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setOpForm({ ...opForm, photoUrl: '' })}
+                              style={{
+                                padding: '8px 12px',
+                                backgroundColor: '#fee2e2',
+                                color: '#991b1b',
+                                border: '1px solid #fecaca',
+                                borderRadius: '9999px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}>
+                              Remove
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#b45309', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 14px rgba(180,83,9,0.3)' }}>
@@ -2348,15 +2598,15 @@ function App() {
                     </button>
                   </div>
 
-                  {/* SECTION 1: REGISTERED PATIENTS WITH PHOTOS */}
+                  {/* SECTION 1: REGISTERED PATIENTS */}
                   {adminActiveTab === 'registered-patients' && (
                     <div className="royal-card" style={{ padding: '24px' }}>
-                      <h3 style={{ margin: '0 0 14px 0', fontSize: '16px' }}>👥 Registered Patients</h3>
+                      <h3 style={{ margin: '0 0 14px 0', fontSize: '16px' }}>👥 Registered Patients ({filteredAdminRegisteredPatients.length})</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {filteredAdminRegisteredPatients.map((p, idx) => (
                           <div key={p.patientId} onClick={() => handleAdminInspectPatient(p.patientId)} className="royal-card royal-card-interactive" style={{ padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                              <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #cbd5e1' }} />
+                              {renderPatientAvatar(p, 40, '1.5px solid #cbd5e1')}
                               <div>
                                 <strong>#{idx + 1} {p.name}</strong> ({p.patientId})
                                 <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Mobile: +91 {p.phoneNumber} • Reg: {formatDateTime(p.createdAt)}</div>
@@ -2369,14 +2619,14 @@ function App() {
                     </div>
                   )}
 
-                  {/* SECTION 2: DOCTORS ON DUTY WITH PHOTOS */}
+                  {/* SECTION 2: DOCTORS ON DUTY */}
                   {adminActiveTab === 'doctors-duty' && (
                     <div className="royal-card" style={{ padding: '24px' }}>
                       <h3 style={{ margin: '0 0 14px 0', fontSize: '16px' }}>👨‍⚕️ Doctors on Duty</h3>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                         {doctorsList.map(doc => (
                           <div key={doc.doctorId} onClick={() => setAdminSelectedDoctor(doc)} className="royal-card royal-card-interactive" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            <img src={doc.photoUrl || activeDoctorPhoto} alt={doc.name} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4338ca' }} />
+                            <img src={doc.photoUrl || DEFAULT_DOC_AVATAR} alt={doc.name} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4338ca' }} />
                             <div>
                               <strong style={{ fontSize: '15px' }}>{doc.name}</strong>
                               <div style={{ fontSize: '12px', color: '#4338ca', fontWeight: '700' }}>{doc.department}</div>
@@ -2427,7 +2677,7 @@ function App() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {filteredAdminDischargedPatients.map((p, idx) => (
                           <div key={p.patientId} onClick={() => handleAdminInspectPatient(p.patientId)} className="royal-card royal-card-interactive" style={{ border: '1px solid #a7f3d0', padding: '14px', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #a7f3d0' }} />
+                            {renderPatientAvatar(p, 38, '1.5px solid #a7f3d0')}
                             <div>
                               <strong>#{idx + 1} {p.name}</strong> ({p.patientId}) - Discharged
                             </div>
@@ -2437,23 +2687,54 @@ function App() {
                     </div>
                   )}
 
-                  {/* SECTION 6: 🚨 GRIEVANCE OVERSIGHT */}
+                  {/* SECTION 6: 🚨 GRIEVANCE OVERSIGHT WITH PERFECT REAL-TIME SYNC */}
                   {adminActiveTab === 'grievances' && (
                     <div className="royal-card" style={{ padding: '24px' }}>
-                      <h3 style={{ margin: '0 0 14px 0', color: '#9f1239', fontSize: '16px' }}>🚨 Patient Video / Photo Grievances</h3>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                        <h3 style={{ margin: 0, color: '#9f1239', fontSize: '16px' }}>🚨 Patient Video / Photo Grievances ({allHospitalGrievances.length})</h3>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>Ground truth verified by patient consent</span>
+                      </div>
+
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {allHospitalGrievances.map(grv => {
                           const isGreen = grv.status === 'RESOLVED' && grv.patientConfirmedResolved
+                          const isOrange = grv.adminReply && !isGreen
+                          const isRed = grv.status === 'SUBMITTED'
+
                           return (
-                            <div key={grv.grievanceId} className="royal-card" style={{ border: `1.5px solid ${isGreen ? '#6ee7b7' : '#fde68a'}`, padding: '16px', backgroundColor: isGreen ? '#ecfdf5' : '#fffbeb' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div key={grv.grievanceId} className="royal-card" style={{ border: `1.5px solid ${isGreen ? '#6ee7b7' : isOrange ? '#fde68a' : '#fecdd3'}`, padding: '18px', backgroundColor: isGreen ? '#ecfdf5' : isOrange ? '#fffbeb' : '#fff1f2' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                 <div>
-                                  <strong>{grv.patientName} ({grv.patientId})</strong> - {grv.category}
-                                  <div style={{ fontSize: '12px', color: '#64748b' }}>"{grv.description}"</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>{isGreen ? '🟢' : isOrange ? '🟠' : '🔴'}</span>
+                                    <strong>{grv.patientName} ({grv.patientId})</strong> - <span style={{ color: '#070e1e', fontWeight: '700' }}>{grv.category}</span>
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: '#475569', marginTop: '3px' }}>"{grv.description}"</div>
+                                  
+                                  {isGreen && (
+                                    <div style={{ fontSize: '11px', color: '#047857', fontWeight: '800', marginTop: '4px' }}>
+                                      ✅ Ground-verified and confirmed resolved by patient on {formatDateTime(grv.patientResolvedAt)}
+                                    </div>
+                                  )}
+
+                                  {isOrange && (
+                                    <div style={{ fontSize: '11px', color: '#b45309', fontWeight: '700', marginTop: '4px' }}>
+                                      ⏳ Action replied by Vigilance: "{grv.adminReply}". Awaiting patient ground verification.
+                                    </div>
+                                  )}
                                 </div>
-                                <button onClick={() => { setSelectedAdminGrievance(grv); setAdminGrievanceReplyText(grv.adminReply || ''); }} style={{ padding: '6px 14px', backgroundColor: '#070e1e', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
-                                  🔍 Watch & Reply
-                                </button>
+
+                                <div>
+                                  {isGreen ? (
+                                    <button onClick={() => { setSelectedAdminGrievance(grv); setAdminGrievanceReplyText(grv.adminReply || ''); }} style={{ padding: '6px 14px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', cursor: 'pointer' }}>
+                                      👁️ View Resolved Case (Green)
+                                    </button>
+                                  ) : (
+                                    <button onClick={() => { setSelectedAdminGrievance(grv); setAdminGrievanceReplyText(grv.adminReply || ''); }} style={{ padding: '6px 14px', backgroundColor: '#070e1e', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                                      🔍 Review & Respond ➔
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           )
@@ -2508,8 +2789,15 @@ function App() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 14000, padding: '20px' }}>
           <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '600px', borderRadius: '24px', padding: '30px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
             <button onClick={() => setSelectedAdminGrievance(null)} style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
-            <h3 style={{ margin: '0 0 6px 0' }}>{selectedAdminGrievance.category}</h3>
-            <p style={{ margin: '0 0 14px 0', fontSize: '13px', color: '#64748b' }}>Patient: {selectedAdminGrievance.patientName} ({selectedAdminGrievance.patientId})</p>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <h3 style={{ margin: 0 }}>{selectedAdminGrievance.category}</h3>
+              <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: selectedAdminGrievance.patientConfirmedResolved ? '#ecfdf5' : '#fffbeb', color: selectedAdminGrievance.patientConfirmedResolved ? '#047857' : '#b45309' }}>
+                {selectedAdminGrievance.patientConfirmedResolved ? '🟢 RESOLVED & PATIENT VERIFIED' : '🟠 INVESTIGATION IN PROGRESS'}
+              </span>
+            </div>
+
+            <p style={{ margin: '0 0 14px 0', fontSize: '13px', color: '#64748b' }}>Patient: {selectedAdminGrievance.patientName} ({selectedAdminGrievance.patientId}) • Dept: {selectedAdminGrievance.department}</p>
 
             {selectedAdminGrievance.mediaUrl && (
               <div style={{ backgroundColor: '#070e1e', padding: '8px', borderRadius: '16px', textAlign: 'center', marginBottom: '14px' }}>
@@ -2521,13 +2809,27 @@ function App() {
               </div>
             )}
 
-            <form onSubmit={handleAdminRespondToGrievance}>
-              <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Official Response to Patient:</label>
-              <textarea rows={3} required placeholder="Type the action taken e.g. Staff reprimanded, medicine issued immediately..." style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '14px', boxSizing: 'border-box' }} value={adminGrievanceReplyText} onChange={e => setAdminGrievanceReplyText(e.target.value)} />
-              <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
-                Send Response to Patient ➔
-              </button>
-            </form>
+            {selectedAdminGrievance.patientConfirmedResolved ? (
+              <div style={{ padding: '16px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '14px', marginBottom: '14px' }}>
+                <strong style={{ color: '#047857', fontSize: '13px', display: 'block', marginBottom: '4px' }}>
+                  ✅ Case Officially Closed by Patient Permission
+                </strong>
+                <p style={{ margin: '0 0 6px 0', fontSize: '12px', color: '#065f46' }}>
+                  The citizen verified on the ground that this grievance was addressed to their satisfaction.
+                </p>
+                <div style={{ fontSize: '11px', color: '#047857' }}>
+                  Admin Action Recorded: "{selectedAdminGrievance.adminReply}"
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAdminRespondToGrievance}>
+                <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Official Response / Action Taken to Patient:</label>
+                <textarea rows={3} required placeholder="Type the action taken e.g. Staff reprimanded, medicine issued immediately..." style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '14px', boxSizing: 'border-box' }} value={adminGrievanceReplyText} onChange={e => setAdminGrievanceReplyText(e.target.value)} />
+                <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
+                  Send Response to Patient Phone ➔
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -2539,7 +2841,7 @@ function App() {
             <button onClick={() => setAdminInspectedPatientFile(null)} style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
-              <img src={adminInspectedPatientFile.patient?.photoUrl || DEFAULT_AVATAR} alt={adminInspectedPatientFile.patient?.name} style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #1e3a8a' }} />
+              {renderPatientAvatar(adminInspectedPatientFile.patient, 56, '2px solid #1e3a8a')}
               <div>
                 <h2 style={{ margin: '0 0 2px 0' }}>{adminInspectedPatientFile.patient?.name}</h2>
                 <span style={{ fontSize: '13px', color: '#64748b' }}>ID: {adminInspectedPatientFile.patient?.patientId} • Mobile: +91 {adminInspectedPatientFile.patient?.phoneNumber}</span>
@@ -2650,7 +2952,7 @@ function App() {
                     {registeredPatients.map(p => (
                       <button key={p.patientId} onClick={() => handleDirectPatientSelect(p)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '10px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                          {renderPatientAvatar(p, 28, '1px solid #cbd5e1')}
                           <span>{p.name} ({p.patientId})</span>
                         </div>
                         <span style={{ color: '#1d4ed8', fontWeight: '800' }}>Enter ➔</span>
@@ -2667,11 +2969,11 @@ function App() {
                   <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Staff Username:</label>
                   <input type="text" placeholder="e.g. op_staff" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={opStaffUser} onChange={e => setOpStaffUser(e.target.value)} />
                   <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Staff Passcode:</label>
-                  <input type="password" placeholder="Passcode (gandhi2026)" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={opStaffPass} onChange={e => setOpStaffPass(e.target.value)} />
+                  <input type="password" placeholder="Passcode (setu2026)" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={opStaffPass} onChange={e => setOpStaffPass(e.target.value)} />
                   {staffLoginError && <div style={{ color: '#be123c', fontSize: '12px', marginBottom: '8px' }}>{staffLoginError}</div>}
                   <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#b45309', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px', marginBottom: '8px' }}>Log In as Staff ➔</button>
                 </form>
-                <div style={{ textAlign: 'center', margin: '6px 0', fontSize: '11px', color: '#64748b' }}>— OR —</div>
+                <div style={{ textAlign: 'center', margin: '6px 0', fontSize: '11px', color: '#94a3b8' }}>— OR —</div>
                 <button 
                   onClick={() => persistLogin('op-desk', { name: 'O/P Receptionist (Desk #1)', staffId: 'STAFF-OP-01' })}
                   style={{ width: '100%', padding: '10px', backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
@@ -2685,7 +2987,7 @@ function App() {
                 {doctorsList.map(doc => (
                   <button key={doc.doctorId} onClick={() => handleRoleSelectLogin('doctor', doc)} style={{ padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '12px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <img src={doc.photoUrl || activeDoctorPhoto} alt={doc.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                      <img src={doc.photoUrl || DEFAULT_DOC_AVATAR} alt={doc.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
                       <strong>{doc.name} ({doc.department})</strong>
                     </div>
                     <span style={{ color: '#4338ca', fontWeight: '800' }}>Enter ➔</span>
