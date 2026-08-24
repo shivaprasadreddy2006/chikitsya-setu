@@ -24,6 +24,21 @@ const DEPARTMENT_LOCATIONS = {
   'General Surgery': { room: 'Room 108', block: 'Surgical Block (1st Floor)' }
 }
 
+// Preset Avatars for Instant Selection
+const PRESET_AVATARS = [
+  { id: '1', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80', label: 'Male 1' },
+  { id: '2', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&auto=format&fit=crop&q=80', label: 'Female 1' },
+  { id: '3', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&auto=format&fit=crop&q=80', label: 'Male 2' },
+  { id: '4', url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&auto=format&fit=crop&q=80', label: 'Female 2' },
+  { id: '5', url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&auto=format&fit=crop&q=80', label: 'Male Senior' },
+  { id: '6', url: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=300&auto=format&fit=crop&q=80', label: 'Female Professional' },
+  { id: '7', url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=300&auto=format&fit=crop&q=80', label: 'Male Professional' },
+  { id: '8', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80', label: 'Female 3' }
+]
+
+// Fallback Default Avatar
+const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&auto=format&fit=crop&q=80'
+
 // Helper: Format ISO Date string into beautiful Indian standard Date & Time
 const formatDateTime = (dateStr) => {
   if (!dateStr) return 'N/A'
@@ -65,7 +80,7 @@ const generateMedicalPresetImage = (type, title, subtitle) => {
   ctx.fill()
 
   // Header Banner
-  ctx.fillStyle = type === 'pharmacy' ? '#059669' : type === 'lab' ? '#0284c7' : type === 'grievance' ? '#e11d48' : '#4f46e5'
+  ctx.fillStyle = type === 'pharmacy' ? '#047857' : type === 'lab' ? '#0369a1' : type === 'grievance' ? '#be123c' : '#4338ca'
   ctx.fillRect(20, 20, 560, 60)
 
   ctx.fillStyle = '#ffffff'
@@ -77,7 +92,7 @@ const generateMedicalPresetImage = (type, title, subtitle) => {
   ctx.fillText(type === 'pharmacy' ? '💊' : type === 'lab' ? '🧪' : type === 'grievance' ? '🚨' : '💉', 40, 146)
 
   // Content
-  ctx.fillStyle = '#0f172a'
+  ctx.fillStyle = '#070e1e'
   ctx.font = 'bold 20px sans-serif'
   ctx.fillText(title, 110, 126)
 
@@ -86,7 +101,7 @@ const generateMedicalPresetImage = (type, title, subtitle) => {
   ctx.fillText(subtitle, 110, 154)
 
   // Details box
-  ctx.fillStyle = '#f8fafc'
+  ctx.fillStyle = '#f1f5f9'
   ctx.fillRect(40, 185, 520, 115)
   ctx.strokeStyle = '#cbd5e1'
   ctx.strokeRect(40, 185, 520, 115)
@@ -98,7 +113,7 @@ const generateMedicalPresetImage = (type, title, subtitle) => {
   ctx.fillText(`AUDIT: ZERO-CORRUPTION DIGITAL WATERMARK`, 55, 265)
 
   // Official Stamp
-  ctx.fillStyle = '#059669'
+  ctx.fillStyle = '#047857'
   ctx.font = 'bold 15px sans-serif'
   ctx.fillText('✅ OFFICIAL ACCOUNTABILITY EVIDENCE LOGGED', 110, 345)
 
@@ -149,6 +164,32 @@ function App() {
   const [patientFullFile, setPatientFullFile] = useState(null)
   const [patientTab, setPatientTab] = useState('overview')
   const [selectedDetailItem, setSelectedDetailItem] = useState(null)
+
+  // Patient Profile Settings Form State
+  const [patientEditForm, setPatientEditForm] = useState({
+    name: '',
+    phoneNumber: '',
+    password: '',
+    photoUrl: '',
+    age: '',
+    gender: 'Male'
+  })
+  const [profileUpdateMsg, setProfileUpdateMsg] = useState('')
+  const [showAvatarPickerModal, setShowAvatarPickerModal] = useState(false)
+
+  // Sync patient edit form on session load/update
+  useEffect(() => {
+    if (currentUser?.role === 'patient' && currentUser.data) {
+      setPatientEditForm({
+        name: currentUser.data.name || '',
+        phoneNumber: currentUser.data.phoneNumber || '',
+        password: currentUser.data.password || '',
+        photoUrl: currentUser.data.photoUrl || DEFAULT_AVATAR,
+        age: currentUser.data.age || '',
+        gender: currentUser.data.gender || 'Male'
+      })
+    }
+  }, [currentUser])
 
   // Patient Grievances
   const [patientGrievances, setPatientGrievances] = useState([])
@@ -385,7 +426,7 @@ function App() {
     const ctx = canvas.getContext('2d')
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
     
-    ctx.fillStyle = 'rgba(225, 29, 72, 0.85)'
+    ctx.fillStyle = 'rgba(190, 18, 60, 0.85)'
     ctx.fillRect(10, canvas.height - 40, canvas.width - 20, 30)
     ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 13px sans-serif'
@@ -478,6 +519,29 @@ function App() {
       fetchAllHospitalGrievances()
     } catch (err) {
       console.error('Error confirming resolution:', err)
+    }
+  }
+
+  // Patient Updates Own Profile (Photo, Phone, Password, Info)
+  const handlePatientUpdateProfile = async (e) => {
+    e.preventDefault()
+    if (!currentUser?.data?.patientId) return
+    try {
+      const res = await axios.put(`${API_BASE}/patients/profile/${currentUser.data.patientId}`, patientEditForm)
+      setProfileUpdateMsg(`✅ ${res.data.message}`)
+      if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
+      
+      const updatedPatient = res.data.patient
+      const updatedUser = { ...currentUser, data: updatedPatient }
+      setCurrentUser(updatedUser)
+      localStorage.setItem('chikitsya_session', JSON.stringify(updatedUser))
+
+      fetchPatientFullFile(updatedPatient.patientId)
+      fetchPatientsList()
+      if (selectedDoctorId) fetchDoctorQueue(selectedDoctorId)
+      fetchAllHospitalGrievances()
+    } catch (err) {
+      setProfileUpdateMsg(`⚠️ ${err.response?.data?.message || 'Update failed'}`)
     }
   }
 
@@ -635,35 +699,6 @@ function App() {
     await fetchPatientGrievances(patient.patientId)
   }
 
-  const handleSendOtp = async (e) => {
-    e.preventDefault()
-    setOtpError('')
-    try {
-      const res = await axios.post(`${API_BASE}/patients/send-otp`, { identifier: otpIdentifier })
-      setOtpSent(true)
-      setOtpInfo(res.data)
-      if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
-    } catch (err) {
-      setOtpError(err.response?.data?.message || 'Failed to send OTP.')
-    }
-  }
-
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault()
-    setOtpError('')
-    try {
-      const res = await axios.post(`${API_BASE}/patients/verify-otp`, { identifier: otpIdentifier, otp: enteredOtp })
-      persistLogin('patient', res.data.patient)
-      await fetchPatientFullFile(res.data.patient.patientId)
-      await fetchPatientGrievances(res.data.patient.patientId)
-      setOtpSent(false)
-      setEnteredOtp('')
-      setOtpIdentifier('')
-    } catch (err) {
-      setOtpError(err.response?.data?.message || 'Invalid OTP.')
-    }
-  }
-
   const handleRoleSelectLogin = (role, data) => {
     if (role === 'doctor' && data?.doctorId) {
       setSelectedDoctorId(data.doctorId)
@@ -676,9 +711,7 @@ function App() {
     setCurrentUser(null)
     setActiveView('home')
     setLoginError('')
-    setOtpError('')
     setStaffLoginError('')
-    setOtpSent(false)
     setPatientFullFile(null)
     setPatientGrievances([])
     setActivePatientForExam(null)
@@ -754,43 +787,6 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
-  const handleDoctorReferral = async (e) => {
-    e.preventDefault()
-    if (!activePatientForExam) return
-    try {
-      const fromDoc = doctorsList.find(d => d.doctorId === selectedDoctorId)
-      const res = await axios.post(`${API_BASE}/referrals/create`, {
-        fromDoctorId: selectedDoctorId,
-        fromDoctorName: fromDoc?.name || 'Physician',
-        patientId: activePatientForExam.patientId,
-        toDepartment: referralDept,
-        reason: referralReason
-      })
-      setDoctorMessage(`✅ ${res.data.message}`)
-      fetchDoctorQueue(selectedDoctorId)
-      fetchDoctors()
-      setActivePatientForExam(null)
-      setInspectedPatientFullFile(null)
-    } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
-  }
-
-  const handleDoctorAdmit = async (e) => {
-    e.preventDefault()
-    if (!activePatientForExam) return
-    try {
-      const res = await axios.post(`${API_BASE}/admissions/admit`, {
-        admittingDoctorId: selectedDoctorId,
-        patientId: activePatientForExam.patientId,
-        wardType: admitWard,
-        bedNumber: admitBed,
-        diagnosis: clinicalNotes || 'Under Inpatient Treatment'
-      })
-      setDoctorMessage(`✅ ${res.data.message}`)
-      fetchDoctorQueue(selectedDoctorId)
-      inspectPatientTimeline(activePatientForExam)
-    } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
-  }
-
   const handleDoctorDischargeSubmit = async (e) => {
     e.preventDefault()
     if (!activePatientForExam) return
@@ -859,6 +855,7 @@ function App() {
 
   const activeDoctorName = resolvedDoctor?.name || latestReferral?.toDoctorName || 'Dr. Suresh Patel'
   const activeDoctorDept = resolvedDoctor?.department || latestReferral?.toDepartment || 'Orthopedics'
+  const activeDoctorPhoto = resolvedDoctor?.photoUrl || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80'
   const activeDoctorLocation = patientFullFile?.doctorLocation || DEPARTMENT_LOCATIONS[activeDoctorDept] || { room: 'Room 204', block: 'Trauma Wing (2nd Floor)' }
 
   const displayedDoctorPatients = (() => {
@@ -1011,7 +1008,7 @@ function App() {
             zIndex: 100
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', boxShadow: '0 0 20px rgba(37,99,235,0.4)' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', boxShadow: '0 0 20px rgba(30,64,175,0.4)' }}>
                 🏥
               </div>
               <div>
@@ -1032,14 +1029,14 @@ function App() {
                 onClick={() => { fetchPatientsList(); setShowLoginModal(true); }}
                 style={{
                   padding: '12px 28px',
-                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '9999px',
                   fontSize: '14px',
-                  fontWeight: '700',
+                  fontWeight: '800',
                   cursor: 'pointer',
-                  boxShadow: '0 6px 20px rgba(37, 99, 235, 0.4)'
+                  boxShadow: '0 6px 20px rgba(30, 64, 175, 0.4)'
                 }}>
                 🔐 Access Portals ➔
               </button>
@@ -1051,8 +1048,8 @@ function App() {
             <div style={{ width: '100%', maxWidth: '1120px' }}>
               
               {/* Grand Royal Hero Banner */}
-              <div className="royal-card animate-fade-in" style={{ padding: '56px 48px', borderRadius: '28px', textAlign: 'center', marginBottom: '36px', background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)', border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '9999px', fontSize: '13px', color: '#1d4ed8', fontWeight: '700', marginBottom: '22px' }}>
+              <div className="royal-card animate-fade-in" style={{ padding: '56px 48px', borderRadius: '28px', textAlign: 'center', marginBottom: '36px', background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)', border: '1px solid #cbd5e1' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '9999px', fontSize: '13px', color: '#1d4ed8', fontWeight: '800', marginBottom: '22px' }}>
                   <span>👑</span> Secunderabad Tertiary Government Hospital
                 </div>
 
@@ -1066,13 +1063,13 @@ function App() {
 
                 {/* Animated Stat Badges */}
                 <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '36px' }}>
-                  <span style={{ padding: '10px 20px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                  <span style={{ padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
                     🏥 1,200+ Bed Inpatient Capacity
                   </span>
-                  <span style={{ padding: '10px 20px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                  <span style={{ padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
                     👥 3,500+ Daily Outpatients
                   </span>
-                  <span style={{ padding: '10px 20px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                  <span style={{ padding: '10px 20px', backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
                     🚨 24/7 Emergency Triage
                   </span>
                   <span style={{ padding: '10px 20px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '9999px', fontSize: '13px', fontWeight: '700', color: '#065f46' }}>
@@ -1083,21 +1080,21 @@ function App() {
                 {/* Live KPI Metric Grid */}
                 {hospitalStats && (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '18px', textAlign: 'center' }}>
-                    <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0', background: '#ffffff' }}>
+                    <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #cbd5e1', background: '#ffffff' }}>
                       <div style={{ fontSize: '32px', fontWeight: '800', color: '#070e1e' }}>{hospitalStats.totalPatients}</div>
-                      <div style={{ fontSize: '13px', color: '#64748b', marginTop: '6px', fontWeight: '600' }}>Patients Registered</div>
+                      <div style={{ fontSize: '13px', color: '#64748b', marginTop: '6px', fontWeight: '700' }}>Patients Registered</div>
                     </div>
                     <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #bfdbfe', background: '#eff6ff' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#2563eb' }}>{hospitalStats.totalDoctors}</div>
-                      <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '6px', fontWeight: '600' }}>Doctors On Shift</div>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#1d4ed8' }}>{hospitalStats.totalDoctors}</div>
+                      <div style={{ fontSize: '13px', color: '#1e40af', marginTop: '6px', fontWeight: '700' }}>Doctors On Shift</div>
                     </div>
                     <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #fde68a', background: '#fffbeb' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#d97706' }}>{hospitalStats.pendingLabs}</div>
-                      <div style={{ fontSize: '13px', color: '#92400e', marginTop: '6px', fontWeight: '600' }}>Diagnostic Orders</div>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#b45309' }}>{hospitalStats.pendingLabs}</div>
+                      <div style={{ fontSize: '13px', color: '#92400e', marginTop: '6px', fontWeight: '700' }}>Diagnostic Orders</div>
                     </div>
                     <div className="royal-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid #a7f3d0', background: '#ecfdf5' }}>
-                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#059669' }}>{hospitalStats.transparencyScore}</div>
-                      <div style={{ fontSize: '13px', color: '#065f46', marginTop: '6px', fontWeight: '600' }}>Integrity Index</div>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: '#047857' }}>{hospitalStats.transparencyScore}</div>
+                      <div style={{ fontSize: '13px', color: '#065f46', marginTop: '6px', fontWeight: '700' }}>Integrity Index</div>
                     </div>
                   </div>
                 )}
@@ -1105,24 +1102,24 @@ function App() {
 
               {/* 3 Pillars of Reform */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '22px' }}>
-                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>⚖️</div>
+                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #cbd5e1' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#eff6ff', color: '#1d4ed8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>⚖️</div>
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#1e3a8a', fontWeight: '800' }}>1. Zero Neglect</h4>
                   <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.6' }}>
                     Eliminates doctor cherry-picking. Smart load-balancing algorithms distribute outpatients automatically across doctors with shortest queues.
                   </p>
                 </div>
 
-                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>🚫</div>
+                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #cbd5e1' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#ecfdf5', color: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>🚫</div>
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#065f46', fontWeight: '800' }}>2. Zero Exploitation</h4>
                   <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.6' }}>
                     No more paying bribes to lab attendants. All diagnostic findings are published directly to the patient's phone with live camera proofs.
                   </p>
                 </div>
 
-                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>📦</div>
+                <div className="royal-card" style={{ padding: '32px', borderRadius: '24px', border: '1px solid #cbd5e1' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#fffbeb', color: '#b45309', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '16px' }}>📦</div>
                   <h4 style={{ margin: '0 0 10px 0', fontSize: '18px', color: '#92400e', fontWeight: '800' }}>3. Zero Leakage</h4>
                   <p style={{ fontSize: '14px', color: '#64748b', margin: 0, lineHeight: '1.6' }}>
                     Every syringe, IV cannula, and medicine is tracked digitally to the patient's bed ledger before discharge, stopping black-market diversion.
@@ -1164,7 +1161,7 @@ function App() {
           }}>
             
             {/* Sidebar Brand Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px', paddingLeft: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', paddingLeft: '6px' }}>
               <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: `linear-gradient(135deg, ${roleTheme.accent} 0%, #1e1b4b 100%)`, color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', boxShadow: `0 0 16px ${roleTheme.accent}66` }}>
                 {roleTheme.icon}
               </div>
@@ -1174,27 +1171,37 @@ function App() {
               </div>
             </div>
 
-            {/* User Profile Card */}
-            <div style={{ backgroundColor: '#0f172a', border: `1px solid ${roleTheme.accent}44`, borderRadius: '16px', padding: '14px', marginBottom: '24px', boxShadow: '0 4px 14px rgba(0,0,0,0.3)' }}>
+            {/* User Profile Card with Live Photo Avatar */}
+            <div style={{ backgroundColor: '#0f172a', border: `1px solid ${roleTheme.accent}44`, borderRadius: '16px', padding: '14px', marginBottom: '22px', boxShadow: '0 4px 14px rgba(0,0,0,0.3)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: '34px', height: '34px', borderRadius: '50%', backgroundColor: roleTheme.accent, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 'bold' }}>
-                  {currentUser.data?.name ? currentUser.data.name.charAt(0) : 'U'}
-                </div>
+                <img
+                  src={currentUser.data?.photoUrl || DEFAULT_AVATAR}
+                  alt="Profile"
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: `2px solid ${roleTheme.accent}`,
+                    boxShadow: `0 0 8px ${roleTheme.accent}66`
+                  }}
+                />
                 <div style={{ overflow: 'hidden' }}>
-                  <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                  <div style={{ color: '#ffffff', fontSize: '13px', fontWeight: '800', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                     {currentUser.data?.name || roleTheme.name}
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: '11px' }}>
+                  <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '600' }}>
                     {currentUser.data?.patientId || currentUser.data?.doctorId || currentUser.data?.staffId || currentUser.role.toUpperCase()}
                   </div>
                 </div>
               </div>
+
               <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '10px', color: '#10b981', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981', display: 'inline-block' }}></span>
                   Session Active
                 </span>
-                <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '600' }}>
+                <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '700' }}>
                   {currentUser.role.toUpperCase()}
                 </span>
               </div>
@@ -1214,7 +1221,8 @@ function App() {
                     { key: 'labs', icon: '🧪', label: `Lab Reports (${patientFullFile?.labRequests?.length || 0})` },
                     { key: 'medicines', icon: '💊', label: `Prescriptions (${patientFullFile?.prescriptions?.length || 0})` },
                     { key: 'admissions', icon: '🛏️', label: 'Ward & Consumables' },
-                    { key: 'grievance', icon: '🚨', label: `Raise Grievance (${patientGrievances.length})` }
+                    { key: 'grievance', icon: '🚨', label: `Raise Grievance (${patientGrievances.length})` },
+                    { key: 'settings', icon: '⚙️', label: 'Account & Profile' }
                   ].map(tab => (
                     <button
                       key={tab.key}
@@ -1226,13 +1234,13 @@ function App() {
                         padding: '10px 14px',
                         borderRadius: '12px',
                         border: 'none',
-                        backgroundColor: patientTab === tab.key ? '#2563eb' : 'transparent',
+                        backgroundColor: patientTab === tab.key ? '#1e3a8a' : 'transparent',
                         color: patientTab === tab.key ? '#ffffff' : '#94a3b8',
-                        fontWeight: patientTab === tab.key ? '700' : '600',
+                        fontWeight: patientTab === tab.key ? '800' : '600',
                         fontSize: '13px',
                         cursor: 'pointer',
                         textAlign: 'left',
-                        boxShadow: patientTab === tab.key ? '0 4px 14px rgba(37,99,235,0.3)' : 'none'
+                        boxShadow: patientTab === tab.key ? '0 4px 14px rgba(30,58,138,0.4)' : 'none'
                       }}>
                       <span>{tab.icon}</span> {tab.label}
                     </button>
@@ -1258,13 +1266,13 @@ function App() {
                         padding: '10px 14px',
                         borderRadius: '12px',
                         border: 'none',
-                        backgroundColor: doctorViewFilter === filter.key ? '#4f46e5' : 'transparent',
+                        backgroundColor: doctorViewFilter === filter.key ? '#312e81' : 'transparent',
                         color: doctorViewFilter === filter.key ? '#ffffff' : '#94a3b8',
-                        fontWeight: doctorViewFilter === filter.key ? '700' : '600',
+                        fontWeight: doctorViewFilter === filter.key ? '800' : '600',
                         fontSize: '13px',
                         cursor: 'pointer',
                         textAlign: 'left',
-                        boxShadow: doctorViewFilter === filter.key ? '0 4px 14px rgba(79,70,229,0.3)' : 'none'
+                        boxShadow: doctorViewFilter === filter.key ? '0 4px 14px rgba(49,46,129,0.4)' : 'none'
                       }}>
                       <span>{filter.icon}</span> {filter.label}
                     </button>
@@ -1274,28 +1282,28 @@ function App() {
 
               {/* Lab Navigation */}
               {currentUser.role === 'lab' && (
-                <div style={{ color: '#38bdf8', padding: '10px', fontSize: '13px', fontWeight: '600' }}>
+                <div style={{ color: '#38bdf8', padding: '10px', fontSize: '13px', fontWeight: '700' }}>
                   🧪 Diagnostic Orders ({labOrders.length})
                 </div>
               )}
 
               {/* Pharmacy Navigation */}
               {currentUser.role === 'pharmacy' && (
-                <div style={{ color: '#10b981', padding: '10px', fontSize: '13px', fontWeight: '600' }}>
+                <div style={{ color: '#10b981', padding: '10px', fontSize: '13px', fontWeight: '700' }}>
                   💊 Active Prescriptions ({prescriptions.length})
                 </div>
               )}
 
               {/* Ward Navigation */}
               {currentUser.role === 'ward' && (
-                <div style={{ color: '#c084fc', padding: '10px', fontSize: '13px', fontWeight: '600' }}>
+                <div style={{ color: '#c084fc', padding: '10px', fontSize: '13px', fontWeight: '700' }}>
                   🛏️ Ward Admissions ({admissionsList.length})
                 </div>
               )}
 
               {/* O/P Desk Navigation */}
               {currentUser.role === 'op-desk' && (
-                <div style={{ color: '#fbbf24', padding: '10px', fontSize: '13px', fontWeight: '600' }}>
+                <div style={{ color: '#fbbf24', padding: '10px', fontSize: '13px', fontWeight: '700' }}>
                   🎫 O/P Patient Registration
                 </div>
               )}
@@ -1321,13 +1329,13 @@ function App() {
                         padding: '10px 14px',
                         borderRadius: '12px',
                         border: 'none',
-                        backgroundColor: adminActiveTab === tab.key ? '#e11d48' : 'transparent',
+                        backgroundColor: adminActiveTab === tab.key ? '#881337' : 'transparent',
                         color: adminActiveTab === tab.key ? '#ffffff' : '#94a3b8',
-                        fontWeight: adminActiveTab === tab.key ? '700' : '600',
+                        fontWeight: adminActiveTab === tab.key ? '800' : '600',
                         fontSize: '12px',
                         cursor: 'pointer',
                         textAlign: 'left',
-                        boxShadow: adminActiveTab === tab.key ? '0 4px 14px rgba(225,29,72,0.3)' : 'none'
+                        boxShadow: adminActiveTab === tab.key ? '0 4px 14px rgba(136,19,55,0.4)' : 'none'
                       }}>
                       <span>{tab.icon}</span> {tab.label}
                     </button>
@@ -1348,7 +1356,7 @@ function App() {
                   border: 'none',
                   borderRadius: '12px',
                   fontSize: '13px',
-                  fontWeight: '700',
+                  fontWeight: '800',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -1366,7 +1374,7 @@ function App() {
             {/* Top Breadcrumb & Status Bar */}
             <div style={{
               backgroundColor: '#ffffff',
-              borderBottom: '1px solid #e2e8f0',
+              borderBottom: '1px solid #cbd5e1',
               padding: '16px 36px',
               display: 'flex',
               justifyContent: 'space-between',
@@ -1374,17 +1382,17 @@ function App() {
               boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
             }}>
               <div>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase' }}>Gandhi Hospital Platform</span>
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Gandhi Hospital Platform</span>
                 <div style={{ fontSize: '16px', fontWeight: '800', color: roleTheme.accent }}>
                   {roleTheme.name}
                 </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '6px 14px', borderRadius: '9999px', fontWeight: '600' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '6px 14px', borderRadius: '9999px', fontWeight: '700' }}>
                   🕒 {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
-                <span style={{ fontSize: '12px', color: '#059669', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: '9999px', fontWeight: '700' }}>
+                <span style={{ fontSize: '12px', color: '#047857', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', padding: '6px 14px', borderRadius: '9999px', fontWeight: '800' }}>
                   ● 100% Free Public Care
                 </span>
               </div>
@@ -1397,17 +1405,71 @@ function App() {
               {currentUser.role === 'patient' && (
                 <div style={{ width: '100%', maxWidth: '920px' }}>
                   
-                  {/* Header Card */}
-                  <div className="royal-card animate-fade-in" style={{ padding: '28px 32px', marginBottom: '24px', borderLeft: `6px solid ${roleTheme.accent}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <span style={{ fontSize: '11px', fontWeight: '800', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Patient Health Record (EHR)</span>
-                        <h2 style={{ margin: '4px 0 2px 0', fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>{currentUser.data.name}</h2>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>Patient ID: <strong>{currentUser.data.patientId}</strong> | Mobile: +91 {currentUser.data.phoneNumber}</span>
+                  {/* Header Card with Patient Photo Avatar */}
+                  <div className="royal-card animate-fade-in" style={{ padding: '24px 30px', marginBottom: '24px', borderLeft: `6px solid ${roleTheme.accent}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{ position: 'relative' }}>
+                          <img
+                            src={currentUser.data.photoUrl || DEFAULT_AVATAR}
+                            alt="Patient Avatar"
+                            style={{
+                              width: '64px',
+                              height: '64px',
+                              borderRadius: '50%',
+                              objectFit: 'cover',
+                              border: '3px solid #1e3a8a',
+                              boxShadow: '0 4px 14px rgba(30,58,138,0.2)'
+                            }}
+                          />
+                          <button
+                            onClick={() => setPatientTab('settings')}
+                            style={{
+                              position: 'absolute',
+                              bottom: '-4px',
+                              right: '-4px',
+                              backgroundColor: '#1e3a8a',
+                              color: 'white',
+                              border: '2px solid white',
+                              borderRadius: '50%',
+                              width: '24px',
+                              height: '24px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px'
+                            }}>
+                            📷
+                          </button>
+                        </div>
+
+                        <div>
+                          <span style={{ fontSize: '11px', fontWeight: '800', color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Patient Health Record (EHR)</span>
+                          <h2 style={{ margin: '2px 0 2px 0', fontSize: '22px', fontWeight: '800', color: '#070e1e' }}>{currentUser.data.name}</h2>
+                          <span style={{ fontSize: '13px', color: '#64748b' }}>Patient ID: <strong>{currentUser.data.patientId}</strong> | Mobile: +91 {currentUser.data.phoneNumber}</span>
+                        </div>
                       </div>
+
                       <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Registration Date:</span>
-                        <strong style={{ fontSize: '13px', color: '#0f172a' }}>{formatDateTime(currentUser.data.createdAt)}</strong>
+                        <button
+                          onClick={() => setPatientTab('settings')}
+                          style={{
+                            padding: '6px 14px',
+                            backgroundColor: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '9999px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                          <span>⚙️</span> Edit Profile
+                        </button>
+                        <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '6px' }}>Reg: {formatDateTime(currentUser.data.createdAt)}</span>
                       </div>
                     </div>
                   </div>
@@ -1437,7 +1499,7 @@ function App() {
                             <div style={{ fontSize: '13px', color: '#0f172a', marginBottom: '6px' }}>
                               <strong>Doctor Summary:</strong> {patientFullFile?.patient?.dischargeSummary || 'Patient examined. Vitals normal.'}
                             </div>
-                            <div style={{ fontSize: '12px', color: '#0284c7' }}>
+                            <div style={{ fontSize: '12px', color: '#0369a1' }}>
                               <strong>📅 Follow-up:</strong> {patientFullFile?.patient?.followUpAdvice || 'Follow-up after 5-7 days if symptoms persist.'}
                             </div>
                           </div>
@@ -1459,24 +1521,31 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Doctor & Location Info */}
+                      {/* Doctor & Location Info with Doctor Photo */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-                        <div className="royal-card" style={{ padding: '20px' }}>
-                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Assigned Physician</div>
-                          <div style={{ fontSize: '17px', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>👨‍⚕️ {activeDoctorName}</div>
-                          <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: '700', marginTop: '2px' }}>Department: {activeDoctorDept}</div>
+                        <div className="royal-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <img
+                            src={activeDoctorPhoto}
+                            alt={activeDoctorName}
+                            style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #1e3a8a' }}
+                          />
+                          <div>
+                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Assigned Physician</div>
+                            <div style={{ fontSize: '16px', fontWeight: '800', color: '#070e1e', marginTop: '2px' }}>{activeDoctorName}</div>
+                            <div style={{ fontSize: '12px', color: '#1d4ed8', fontWeight: '700' }}>Department: {activeDoctorDept}</div>
+                          </div>
                         </div>
 
                         <div className="royal-card" style={{ padding: '20px' }}>
                           <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '800', textTransform: 'uppercase' }}>Physical Room Location</div>
-                          <div style={{ fontSize: '17px', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>📍 {activeDoctorLocation.room}</div>
+                          <div style={{ fontSize: '17px', fontWeight: '800', color: '#b45309', marginTop: '4px' }}>📍 {activeDoctorLocation.room}</div>
                           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{activeDoctorLocation.block}</div>
                         </div>
                       </div>
 
                       {/* Chronological Journey Timeline */}
                       <div className="royal-card" style={{ padding: '26px' }}>
-                        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '800', color: '#070e1e' }}>
                           📅 Patient Journey & Accountability Timeline
                         </h3>
 
@@ -1488,14 +1557,14 @@ function App() {
                               </div>
                               <div style={{ flex: 1 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                                  <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.stage}</strong>
+                                  <strong style={{ fontSize: '14px', color: '#070e1e' }}>{item.stage}</strong>
                                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                     {item.photoProof && (
-                                      <span style={{ fontSize: '11px', backgroundColor: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '9999px', fontWeight: '800' }}>
+                                      <span style={{ fontSize: '11px', backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '9999px', fontWeight: '800' }}>
                                         📸 Photo Proof
                                       </span>
                                     )}
-                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#2563eb', backgroundColor: '#eff6ff', padding: '2px 10px', borderRadius: '9999px' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#1d4ed8', backgroundColor: '#eff6ff', padding: '2px 10px', borderRadius: '9999px' }}>
                                       🕒 {formatDateTime(item.timestamp)}
                                     </span>
                                   </div>
@@ -1513,25 +1582,25 @@ function App() {
                   {/* LABS TAB */}
                   {patientTab === 'labs' && (
                     <div className="animate-fade-in">
-                      <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: '17px' }}>Diagnostic Laboratory Reports</h3>
+                      <h3 style={{ margin: '0 0 16px 0', color: '#070e1e', fontSize: '17px' }}>Diagnostic Laboratory Reports</h3>
                       {patientFullFile?.labRequests?.map(lab => (
                         <div key={lab._id} className="royal-card" style={{ padding: '20px', marginBottom: '14px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <strong style={{ fontSize: '15px' }}>{lab.testName}</strong>
-                            <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: lab.status === 'REPORT_READY' ? '#ecfdf5' : '#fffbeb', color: lab.status === 'REPORT_READY' ? '#059669' : '#d97706' }}>
+                            <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: lab.status === 'REPORT_READY' ? '#ecfdf5' : '#fffbeb', color: lab.status === 'REPORT_READY' ? '#047857' : '#b45309' }}>
                               {lab.status === 'REPORT_READY' ? '✅ Report Ready' : '⏳ Processing'}
                             </span>
                           </div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>Ordered by {lab.doctorName} • {formatDateTime(lab.createdAt)}</div>
                           {lab.findings && (
-                            <div style={{ marginTop: '10px', padding: '12px 16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                            <div style={{ marginTop: '10px', padding: '12px 16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px' }}>
                               <strong>Findings:</strong> {lab.findings}
                             </div>
                           )}
                           {lab.photoProof && (
                             <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <img src={lab.photoProof} alt="Proof" style={{ height: '54px', borderRadius: '8px' }} />
-                              <span style={{ fontSize: '11px', color: '#059669', fontWeight: '800' }}>✓ Verified diagnostic film attached</span>
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: '800' }}>✓ Verified diagnostic film attached</span>
                             </div>
                           )}
                         </div>
@@ -1542,12 +1611,12 @@ function App() {
                   {/* MEDICINES TAB */}
                   {patientTab === 'medicines' && (
                     <div className="animate-fade-in">
-                      <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: '17px' }}>Prescribed Medications</h3>
+                      <h3 style={{ margin: '0 0 16px 0', color: '#070e1e', fontSize: '17px' }}>Prescribed Medications</h3>
                       {patientFullFile?.prescriptions?.map(rx => (
                         <div key={rx._id} className="royal-card" style={{ padding: '20px', marginBottom: '14px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <strong style={{ fontSize: '14px' }}>Prescription by {rx.doctorName}</strong>
-                            <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#ecfdf5' : '#fffbeb', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#059669' : '#d97706' }}>
+                            <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#ecfdf5' : '#fffbeb', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#047857' : '#b45309' }}>
                               {rx.status}
                             </span>
                           </div>
@@ -1562,7 +1631,7 @@ function App() {
                   {/* ADMISSIONS TAB */}
                   {patientTab === 'admissions' && (
                     <div className="animate-fade-in">
-                      <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: '17px' }}>Inpatient Ward & Bed Ledger</h3>
+                      <h3 style={{ margin: '0 0 16px 0', color: '#070e1e', fontSize: '17px' }}>Inpatient Ward & Bed Ledger</h3>
                       {patientFullFile?.admission ? (
                         <div className="royal-card" style={{ padding: '22px' }}>
                           <strong>Ward: {patientFullFile.admission.wardType} ({patientFullFile.admission.bedNumber})</strong>
@@ -1580,7 +1649,7 @@ function App() {
                     </div>
                   )}
 
-                  {/* GRIEVANCE TAB & RESOLUTION PROTOCOL */}
+                  {/* GRIEVANCE TAB */}
                   {patientTab === 'grievance' && (
                     <div className="animate-fade-in">
                       <div className="royal-card" style={{ backgroundColor: '#fff1f2', border: '1px solid #fecdd3', padding: '20px 24px', marginBottom: '22px' }}>
@@ -1642,8 +1711,8 @@ function App() {
                           </div>
 
                           {/* Media Capture Viewfinder */}
-                          <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
-                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#0f172a', display: 'block', marginBottom: '8px' }}>
+                          <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #cbd5e1', marginBottom: '16px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: '800', color: '#070e1e', display: 'block', marginBottom: '8px' }}>
                               📷 Video & Photo Evidence Attachment:
                             </span>
 
@@ -1660,10 +1729,10 @@ function App() {
                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '10px' }}>
                                   {!isRecordingGrievanceVideo ? (
                                     <>
-                                      <button type="button" onClick={snapGrievancePhoto} style={{ padding: '8px 18px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}>
+                                      <button type="button" onClick={snapGrievancePhoto} style={{ padding: '8px 18px', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}>
                                         📸 Snap Photo
                                       </button>
-                                      <button type="button" onClick={startGrievanceVideoRecording} style={{ padding: '8px 18px', backgroundColor: '#e11d48', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}>
+                                      <button type="button" onClick={startGrievanceVideoRecording} style={{ padding: '8px 18px', backgroundColor: '#be123c', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', cursor: 'pointer', fontSize: '12px' }}>
                                         🎥 Record Video
                                       </button>
                                       <button type="button" onClick={stopGrievanceCamera} style={{ padding: '8px 14px', backgroundColor: '#64748b', color: 'white', border: 'none', borderRadius: '9999px', cursor: 'pointer', fontSize: '12px' }}>
@@ -1671,7 +1740,7 @@ function App() {
                                       </button>
                                     </>
                                   ) : (
-                                    <button type="button" onClick={stopGrievanceVideoRecording} style={{ padding: '8px 22px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>
+                                    <button type="button" onClick={stopGrievanceVideoRecording} style={{ padding: '8px 22px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', cursor: 'pointer', fontSize: '13px' }}>
                                       ⏹️ Stop Recording & Attach ➔
                                     </button>
                                   )}
@@ -1688,7 +1757,7 @@ function App() {
                                     <video src={grievanceForm.mediaUrl} controls style={{ height: '60px', borderRadius: '8px' }} />
                                   )}
                                   <div>
-                                    <strong style={{ fontSize: '13px', color: '#059669' }}>
+                                    <strong style={{ fontSize: '13px', color: '#047857' }}>
                                       {grievanceForm.mediaType === 'video' ? '🎥 Video Attached' : '📸 Photo Attached'}
                                     </strong>
                                   </div>
@@ -1712,7 +1781,7 @@ function App() {
                             )}
                           </div>
 
-                          <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#e11d48', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 16px rgba(225,29,72,0.3)' }}>
+                          <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#be123c', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 16px rgba(190,18,60,0.3)' }}>
                             🚨 Submit Grievance with Evidence ➔
                           </button>
                         </form>
@@ -1735,12 +1804,12 @@ function App() {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
                                   <div>
                                     <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>{grv.grievanceId} • {grv.department}</span>
-                                    <h4 style={{ margin: '2px 0 0 0', color: '#0f172a', fontSize: '15px' }}>{grv.category}</h4>
+                                    <h4 style={{ margin: '2px 0 0 0', color: '#070e1e', fontSize: '15px' }}>{grv.category}</h4>
                                   </div>
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'white', padding: '4px 12px', borderRadius: '9999px', border: `1px solid ${isGreen ? '#a7f3d0' : isOrange ? '#fde68a' : '#fecdd3'}` }}>
                                     <span>{isGreen ? '🟢' : isOrange ? '🟠' : '🔴'}</span>
-                                    <strong style={{ fontSize: '11px', color: isGreen ? '#059669' : isOrange ? '#d97706' : '#e11d48' }}>
+                                    <strong style={{ fontSize: '11px', color: isGreen ? '#047857' : isOrange ? '#b45309' : '#be123c' }}>
                                       {isGreen ? 'RESOLVED (APPROVED BY YOU)' : isOrange ? (grv.adminReply ? 'ACTION TAKEN (CONFIRM BELOW)' : 'UNDER INVESTIGATION') : 'SUBMITTED (AWAITING REVIEW)'}
                                     </strong>
                                   </div>
@@ -1763,10 +1832,10 @@ function App() {
                                 {grv.adminReply ? (
                                   <div style={{ backgroundColor: '#ffffff', padding: '14px', borderRadius: '14px', border: '1px solid #cbd5e1', marginTop: '10px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                      <strong style={{ fontSize: '12px', color: '#059669' }}>💬 Superintendent Response:</strong>
-                                      <span style={{ fontSize: '11px', color: '#2563eb' }}>🕒 {formatDateTime(grv.adminRepliedAt)}</span>
+                                      <strong style={{ fontSize: '12px', color: '#047857' }}>💬 Superintendent Response:</strong>
+                                      <span style={{ fontSize: '11px', color: '#1d4ed8' }}>🕒 {formatDateTime(grv.adminRepliedAt)}</span>
                                     </div>
-                                    <p style={{ margin: '2px 0 6px 0', fontSize: '13px', color: '#0f172a' }}>"{grv.adminReply}"</p>
+                                    <p style={{ margin: '2px 0 6px 0', fontSize: '13px', color: '#070e1e' }}>"{grv.adminReply}"</p>
                                     <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Officer: {grv.adminRepliedBy}</span>
 
                                     {!grv.patientConfirmedResolved ? (
@@ -1778,10 +1847,10 @@ function App() {
                                           Only YOU have the authority to grant permission to close this issue as Green 🟢.
                                         </p>
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                          <button onClick={() => handlePatientConfirmResolution(grv.grievanceId, true)} style={{ padding: '6px 14px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '11px', cursor: 'pointer' }}>
+                                          <button onClick={() => handlePatientConfirmResolution(grv.grievanceId, true)} style={{ padding: '6px 14px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '11px', cursor: 'pointer' }}>
                                             ✅ Yes, Issue Fixed (Turn Green 🟢)
                                           </button>
-                                          <button onClick={() => handlePatientConfirmResolution(grv.grievanceId, false)} style={{ padding: '6px 14px', backgroundColor: '#e11d48', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '11px', cursor: 'pointer' }}>
+                                          <button onClick={() => handlePatientConfirmResolution(grv.grievanceId, false)} style={{ padding: '6px 14px', backgroundColor: '#be123c', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '11px', cursor: 'pointer' }}>
                                             ❌ No, Still Pending (Stay Orange 🟠)
                                           </button>
                                         </div>
@@ -1789,7 +1858,7 @@ function App() {
                                     ) : (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#ecfdf5', padding: '8px 12px', borderRadius: '10px', border: '1px solid #a7f3d0', marginTop: '10px' }}>
                                         <span style={{ fontSize: '14px' }}>🟢</span>
-                                        <strong style={{ fontSize: '11px', color: '#059669' }}>
+                                        <strong style={{ fontSize: '11px', color: '#047857' }}>
                                           Resolution verified & approved by you on {formatDateTime(grv.patientResolvedAt)}
                                         </strong>
                                       </div>
@@ -1809,6 +1878,189 @@ function App() {
                     </div>
                   )}
 
+                  {/* TAB 6: ⚙️ MY PROFILE & ACCOUNT SETTINGS (NEW USER FEATURE) */}
+                  {patientTab === 'settings' && (
+                    <div className="animate-fade-in">
+                      <div className="royal-card" style={{ padding: '32px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                          <div>
+                            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#070e1e' }}>
+                              ⚙️ My Profile & Account Settings
+                            </h3>
+                            <span style={{ fontSize: '13px', color: '#64748b' }}>
+                              Update your live profile photo, WhatsApp phone number, and login PIN. Syncs across the entire hospital network!
+                            </span>
+                          </div>
+                        </div>
+
+                        {profileUpdateMsg && (
+                          <div style={{ marginBottom: '20px', padding: '12px 16px', backgroundColor: '#ecfdf5', color: '#065f46', borderRadius: '12px', border: '1px solid #a7f3d0', fontWeight: '700', fontSize: '13px' }}>
+                            {profileUpdateMsg}
+                          </div>
+                        )}
+
+                        <form onSubmit={handlePatientUpdateProfile}>
+                          
+                          {/* Profile Photo Customizer */}
+                          <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '18px', border: '1px solid #cbd5e1', marginBottom: '24px' }}>
+                            <label style={{ fontSize: '13px', fontWeight: '800', color: '#070e1e', display: 'block', marginBottom: '10px' }}>
+                              📸 Profile Photo Avatar:
+                            </label>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                              <img
+                                src={patientEditForm.photoUrl || DEFAULT_AVATAR}
+                                alt="Current Profile"
+                                style={{
+                                  width: '80px',
+                                  height: '80px',
+                                  borderRadius: '50%',
+                                  objectFit: 'cover',
+                                  border: '3px solid #1e3a8a',
+                                  boxShadow: '0 4px 14px rgba(30,58,138,0.25)'
+                                }}
+                              />
+
+                              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => openCameraModal(
+                                    '📸 Capture Live Profile Photo',
+                                    'profile',
+                                    currentUser.data.patientId,
+                                    (photo) => setPatientEditForm({ ...patientEditForm, photoUrl: photo })
+                                  )}
+                                  style={{
+                                    padding: '10px 18px',
+                                    backgroundColor: '#1e3a8a',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '9999px',
+                                    fontSize: '13px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                  }}>
+                                  <span>📷</span> Take Live Camera Photo
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAvatarPickerModal(true)}
+                                  style={{
+                                    padding: '10px 18px',
+                                    backgroundColor: '#ffffff',
+                                    color: '#070e1e',
+                                    border: '1px solid #cbd5e1',
+                                    borderRadius: '9999px',
+                                    fontSize: '13px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                  }}>
+                                  <span>🎭</span> Choose Preset Avatar
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Personal & Account Credentials */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                Patient Full Name:
+                              </label>
+                              <input
+                                required
+                                type="text"
+                                style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                value={patientEditForm.name}
+                                onChange={e => setPatientEditForm({ ...patientEditForm, name: e.target.value })}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                WhatsApp Mobile Number (10 Digits):
+                              </label>
+                              <input
+                                required
+                                type="tel"
+                                style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                value={patientEditForm.phoneNumber}
+                                onChange={e => setPatientEditForm({ ...patientEditForm, phoneNumber: e.target.value })}
+                              />
+                              <span style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', display: 'block' }}>All hospital notifications are sent here.</span>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+                            <div>
+                              <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                Login PIN / Passcode:
+                              </label>
+                              <input
+                                required
+                                type="text"
+                                style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                value={patientEditForm.password}
+                                onChange={e => setPatientEditForm({ ...patientEditForm, password: e.target.value })}
+                              />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                              <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                  Age:
+                                </label>
+                                <input
+                                  type="number"
+                                  style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px', boxSizing: 'border-box' }}
+                                  value={patientEditForm.age}
+                                  onChange={e => setPatientEditForm({ ...patientEditForm, age: e.target.value })}
+                                />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                                  Gender:
+                                </label>
+                                <select
+                                  style={{ width: '100%', padding: '12px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: 'white', boxSizing: 'border-box' }}
+                                  value={patientEditForm.gender}
+                                  onChange={e => setPatientEditForm({ ...patientEditForm, gender: e.target.value })}>
+                                  <option>Male</option>
+                                  <option>Female</option>
+                                  <option>Other</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="submit"
+                            style={{
+                              width: '100%',
+                              padding: '14px',
+                              background: 'linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '9999px',
+                              fontSize: '14px',
+                              fontWeight: '800',
+                              cursor: 'pointer',
+                              boxShadow: '0 6px 20px rgba(30,58,138,0.3)'
+                            }}>
+                            💾 Save Account Changes & Sync Everywhere ➔
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               )}
 
@@ -1816,14 +2068,21 @@ function App() {
               {currentUser.role === 'doctor' && (
                 <div style={{ width: '100%', maxWidth: '1040px' }} className="animate-fade-in">
                   
-                  {/* Doctor Profile Card */}
-                  <div className="royal-card" style={{ padding: '22px 28px', marginBottom: '20px', borderLeft: '6px solid #4f46e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-                    <div>
-                      <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700' }}>Physician On Duty</span>
-                      <h2 style={{ margin: '2px 0 0 0', color: '#0f172a', fontSize: '20px', fontWeight: '800' }}>{currentUser.data.name}</h2>
-                      <span style={{ fontSize: '13px', color: '#4f46e5', fontWeight: '700' }}>
-                        {currentUser.data.department} • 📍 {DEPARTMENT_LOCATIONS[currentUser.data.department]?.room} ({DEPARTMENT_LOCATIONS[currentUser.data.department]?.block})
-                      </span>
+                  {/* Doctor Profile Card with Photo */}
+                  <div className="royal-card" style={{ padding: '22px 28px', marginBottom: '20px', borderLeft: '6px solid #4338ca', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <img
+                        src={currentUser.data?.photoUrl || activeDoctorPhoto}
+                        alt={currentUser.data.name}
+                        style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4338ca' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: '700' }}>Physician On Duty</span>
+                        <h2 style={{ margin: '2px 0 0 0', color: '#070e1e', fontSize: '20px', fontWeight: '800' }}>{currentUser.data.name}</h2>
+                        <span style={{ fontSize: '13px', color: '#4338ca', fontWeight: '700' }}>
+                          {currentUser.data.department} • 📍 {DEPARTMENT_LOCATIONS[currentUser.data.department]?.room} ({DEPARTMENT_LOCATIONS[currentUser.data.department]?.block})
+                        </span>
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1842,7 +2101,7 @@ function App() {
                   {/* Doctor View Workspace */}
                   <div style={{ display: 'grid', gridTemplateColumns: activePatientForExam ? '1fr 1.3fr' : '1fr', gap: '20px' }}>
                     
-                    {/* Patient Queue */}
+                    {/* Patient Queue with Patient Photo Thumbnails */}
                     <div className="royal-card" style={{ padding: '24px' }}>
                       <h3 style={{ margin: '0 0 14px 0', fontSize: '15px', fontWeight: '800' }}>
                         {doctorViewFilter === 'waiting' && `⏳ Patients in Waiting Queue (${displayedDoctorPatients.length})`}
@@ -1852,12 +2111,15 @@ function App() {
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '560px', overflowY: 'auto' }}>
                         {displayedDoctorPatients.map((p, i) => (
-                          <div key={p.patientId} onClick={() => inspectPatientTimeline(p)} className="royal-card royal-card-interactive" style={{ border: activePatientForExam?.patientId === p.patientId ? '2px solid #4f46e5' : '1px solid #e2e8f0', padding: '12px 14px', backgroundColor: activePatientForExam?.patientId === p.patientId ? '#eef2ff' : '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <strong style={{ fontSize: '14px' }}>#{i + 1} {p.name}</strong>
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{p.patientId} • {p.age}y {p.gender}</div>
+                          <div key={p.patientId} onClick={() => inspectPatientTimeline(p)} className="royal-card royal-card-interactive" style={{ border: activePatientForExam?.patientId === p.patientId ? '2px solid #4338ca' : '1px solid #cbd5e1', padding: '12px 14px', backgroundColor: activePatientForExam?.patientId === p.patientId ? '#eef2ff' : '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                              <div>
+                                <strong style={{ fontSize: '14px' }}>#{i + 1} {p.name}</strong>
+                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{p.patientId} • {p.age}y {p.gender}</div>
+                              </div>
                             </div>
-                            <span style={{ padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', backgroundColor: '#eef2ff', color: '#4f46e5' }}>
+                            <span style={{ padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', backgroundColor: '#eef2ff', color: '#4338ca' }}>
                               {p.currentStatus.replace(/_/g, ' ')}
                             </span>
                           </div>
@@ -1868,19 +2130,22 @@ function App() {
                     {/* Examination Desk */}
                     {activePatientForExam && (
                       <div className="royal-card" style={{ padding: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px', marginBottom: '14px' }}>
-                          <div>
-                            <span style={{ fontSize: '11px', color: '#4f46e5', fontWeight: '800' }}>Active Examination File</span>
-                            <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '800' }}>{activePatientForExam.name} ({activePatientForExam.patientId})</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '12px', marginBottom: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <img src={activePatientForExam.photoUrl || DEFAULT_AVATAR} alt={activePatientForExam.name} style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4338ca' }} />
+                            <div>
+                              <span style={{ fontSize: '11px', color: '#4338ca', fontWeight: '800' }}>Active Examination File</span>
+                              <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '800' }}>{activePatientForExam.name} ({activePatientForExam.patientId})</h3>
+                            </div>
                           </div>
                           <button onClick={() => setActivePatientForExam(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}>✕</button>
                         </div>
 
                         {/* Action Tabs */}
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', flexWrap: 'wrap' }}>
-                          <button onClick={() => setDoctorActionTab('lab')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'lab' ? '#4f46e5' : '#f1f5f9', color: doctorActionTab === 'lab' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>🧪 Order Lab</button>
-                          <button onClick={() => setDoctorActionTab('rx')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'rx' ? '#4f46e5' : '#f1f5f9', color: doctorActionTab === 'rx' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>💊 Prescribe</button>
-                          <button onClick={() => setDoctorActionTab('discharge')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'discharge' ? '#059669' : '#ecfdf5', color: doctorActionTab === 'discharge' ? 'white' : '#065f46', cursor: 'pointer', fontWeight: '800' }}>🏁 Discharge</button>
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px', flexWrap: 'wrap' }}>
+                          <button onClick={() => setDoctorActionTab('lab')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'lab' ? '#4338ca' : '#f1f5f9', color: doctorActionTab === 'lab' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>🧪 Order Lab</button>
+                          <button onClick={() => setDoctorActionTab('rx')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'rx' ? '#4338ca' : '#f1f5f9', color: doctorActionTab === 'rx' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>💊 Prescribe</button>
+                          <button onClick={() => setDoctorActionTab('discharge')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'discharge' ? '#047857' : '#ecfdf5', color: doctorActionTab === 'discharge' ? 'white' : '#065f46', cursor: 'pointer', fontWeight: '800' }}>🏁 Discharge</button>
                         </div>
 
                         {doctorActionTab === 'lab' && (
@@ -1891,7 +2156,7 @@ function App() {
                               <option>Lipid Profile</option>
                               <option>Chest X-Ray (PA View)</option>
                             </select>
-                            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
+                            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
                               Order Diagnostic Test ➔
                             </button>
                           </form>
@@ -1900,7 +2165,7 @@ function App() {
                         {doctorActionTab === 'rx' && (
                           <form onSubmit={handleDoctorPrescribe}>
                             <input type="text" style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', fontSize: '13px' }} value={rxMedicines} onChange={e => setRxMedicines(e.target.value)} />
-                            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
+                            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
                               Send Prescription to Pharmacy ➔
                             </button>
                           </form>
@@ -1909,7 +2174,7 @@ function App() {
                         {doctorActionTab === 'discharge' && (
                           <form onSubmit={handleDoctorDischargeSubmit}>
                             <textarea rows={3} style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', fontSize: '13px', boxSizing: 'border-box' }} value={dischargeSummaryText} onChange={e => setDischargeSummaryText(e.target.value)} />
-                            <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
+                            <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
                               🏁 Authorize Discharge & Complete ➔
                             </button>
                           </form>
@@ -1924,7 +2189,7 @@ function App() {
               {/* 2.3 LAB VIEWPORT */}
               {currentUser.role === 'lab' && (
                 <div style={{ width: '100%', maxWidth: '880px' }} className="animate-fade-in">
-                  <div className="royal-card" style={{ padding: '24px', borderLeft: '6px solid #0284c7', marginBottom: '20px' }}>
+                  <div className="royal-card" style={{ padding: '24px', borderLeft: '6px solid #0369a1', marginBottom: '20px' }}>
                     <h2 style={{ margin: '0 0 4px 0', fontSize: '20px' }}>🔬 Diagnostic Laboratory Monitor</h2>
                     <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Verify sample collections and publish diagnostic report films with live camera proof.</p>
                   </div>
@@ -1937,13 +2202,13 @@ function App() {
                             <strong style={{ fontSize: '15px' }}>{order.testName}</strong>
                             <div style={{ fontSize: '12px', color: '#64748b' }}>Patient: {order.patientId} • Ordered by: {order.doctorName}</div>
                           </div>
-                          <span style={{ padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', backgroundColor: order.status === 'REPORT_READY' ? '#ecfdf5' : '#fffbeb', color: order.status === 'REPORT_READY' ? '#059669' : '#d97706' }}>
+                          <span style={{ padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', backgroundColor: order.status === 'REPORT_READY' ? '#ecfdf5' : '#fffbeb', color: order.status === 'REPORT_READY' ? '#047857' : '#b45309' }}>
                             {order.status}
                           </span>
                         </div>
 
                         {order.status === 'PENDING' && (
-                          <button onClick={() => openCameraModal(`📸 Sample Tube Proof (${order.testName})`, 'lab', order._id, (p) => executeLabCollectWithPhoto(order._id, p))} style={{ padding: '8px 18px', backgroundColor: '#0284c7', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+                          <button onClick={() => openCameraModal(`📸 Sample Tube Proof (${order.testName})`, 'lab', order._id, (p) => executeLabCollectWithPhoto(order._id, p))} style={{ padding: '8px 18px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
                             <span>📷</span> Collect Sample with Camera Proof
                           </button>
                         )}
@@ -1951,7 +2216,7 @@ function App() {
                         {order.status === 'SAMPLE_COLLECTED' && (
                           <div>
                             <input type="text" placeholder="Enter findings e.g. Hb 13.8 g/dL" style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '8px' }} onChange={e => setLabFindingsInput({...labFindingsInput, [order._id]: e.target.value})} />
-                            <button onClick={() => openCameraModal(`📸 Diagnostic Sheet Proof (${order.testName})`, 'lab', order._id, (p) => executeLabPublishWithPhoto(order._id, p))} style={{ padding: '8px 18px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+                            <button onClick={() => openCameraModal(`📸 Diagnostic Sheet Proof (${order.testName})`, 'lab', order._id, (p) => executeLabPublishWithPhoto(order._id, p))} style={{ padding: '8px 18px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
                               <span>📷</span> Publish Report with Camera Proof
                             </button>
                           </div>
@@ -1965,7 +2230,7 @@ function App() {
               {/* 2.4 PHARMACY VIEWPORT */}
               {currentUser.role === 'pharmacy' && (
                 <div style={{ width: '100%', maxWidth: '880px' }} className="animate-fade-in">
-                  <div className="royal-card" style={{ padding: '24px', borderLeft: '6px solid #059669', marginBottom: '20px' }}>
+                  <div className="royal-card" style={{ padding: '24px', borderLeft: '6px solid #047857', marginBottom: '20px' }}>
                     <h2 style={{ margin: '0 0 4px 0', fontSize: '20px' }}>💊 Pharmacy Dispensing Counter</h2>
                     <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Dispense prescribed medications with mandatory live camera handover evidence.</p>
                   </div>
@@ -1975,7 +2240,7 @@ function App() {
                       <div key={rx._id} className="royal-card" style={{ padding: '18px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                           <strong style={{ fontSize: '14px' }}>Patient: {rx.patientId} (Dr: {rx.doctorName})</strong>
-                          <span style={{ padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#ecfdf5' : '#fffbeb', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#059669' : '#d97706' }}>
+                          <span style={{ padding: '3px 10px', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#ecfdf5' : '#fffbeb', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#047857' : '#b45309' }}>
                             {rx.status}
                           </span>
                         </div>
@@ -1984,7 +2249,7 @@ function App() {
                         </ul>
 
                         {rx.status !== 'COMPLETELY_DISPENSED' && rx.status !== 'DISPENSED' && (
-                          <button onClick={() => openCameraModal(`📸 Dispensing Proof (${rx.patientId})`, 'pharmacy', rx._id, (p) => executeDispenseWithPhoto(rx._id, p))} style={{ padding: '8px 18px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+                          <button onClick={() => openCameraModal(`📸 Dispensing Proof (${rx.patientId})`, 'pharmacy', rx._id, (p) => executeDispenseWithPhoto(rx._id, p))} style={{ padding: '8px 18px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
                             <span>📷</span> Dispense with Camera Proof
                           </button>
                         )}
@@ -1997,7 +2262,7 @@ function App() {
               {/* 2.5 WARD VIEWPORT */}
               {currentUser.role === 'ward' && (
                 <div style={{ width: '100%', maxWidth: '880px' }} className="animate-fade-in">
-                  <div className="royal-card" style={{ padding: '24px', borderLeft: '6px solid #7c3aed', marginBottom: '20px' }}>
+                  <div className="royal-card" style={{ padding: '24px', borderLeft: '6px solid #6d28d9', marginBottom: '20px' }}>
                     <h2 style={{ margin: '0 0 4px 0', fontSize: '20px' }}>🛏️ Inpatient Ward & Supply Tracker</h2>
                     <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Track bed allocations and consumable items with live camera verification.</p>
                   </div>
@@ -2010,7 +2275,7 @@ function App() {
                             <strong style={{ fontSize: '15px' }}>{adm.patientName || adm.patientId}</strong> ({adm.wardType} - {adm.bedNumber})
                           </div>
                           {adm.status === 'ADMITTED' && (
-                            <button onClick={() => handleDischarge(adm._id)} style={{ padding: '6px 14px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
+                            <button onClick={() => handleDischarge(adm._id)} style={{ padding: '6px 14px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>
                               🏁 Discharge Bed
                             </button>
                           )}
@@ -2024,7 +2289,7 @@ function App() {
               {/* 2.6 O/P DESK VIEWPORT */}
               {currentUser.role === 'op-desk' && (
                 <div style={{ width: '100%', maxWidth: '600px' }} className="animate-fade-in">
-                  <div className="royal-card" style={{ padding: '32px', borderLeft: '6px solid #d97706' }}>
+                  <div className="royal-card" style={{ padding: '32px', borderLeft: '6px solid #b45309' }}>
                     <h2 style={{ margin: '0 0 4px 0', fontSize: '20px' }}>🎫 O/P Registration Desk</h2>
                     <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '13px' }}>Create new outpatient record and send credentials via WhatsApp.</p>
 
@@ -2054,7 +2319,7 @@ function App() {
                         <input required type="tel" placeholder="e.g. 9876543210" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opForm.phoneNumber} onChange={e => setOpForm({...opForm, phoneNumber: e.target.value})} />
                       </div>
 
-                      <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 14px rgba(217,119,6,0.3)' }}>
+                      <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#b45309', color: 'white', border: 'none', borderRadius: '9999px', fontSize: '14px', fontWeight: '800', cursor: 'pointer', boxShadow: '0 4px 14px rgba(180,83,9,0.3)' }}>
                         Register Patient & Auto-Assign Desk ➔
                       </button>
                     </form>
@@ -2067,11 +2332,11 @@ function App() {
                 <div style={{ width: '100%', maxWidth: '1040px' }} className="animate-fade-in">
                   
                   {/* Admin Header */}
-                  <div className="royal-card" style={{ padding: '24px 32px', marginBottom: '24px', borderLeft: '6px solid #e11d48', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <div className="royal-card" style={{ padding: '24px 32px', marginBottom: '24px', borderLeft: '6px solid #be123c', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800' }}>📊 Hospital Administration Console</h2>
-                        <span style={{ backgroundColor: '#ecfdf5', color: '#059669', padding: '3px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', border: '1px solid #a7f3d0' }}>● Live Sync</span>
+                        <span style={{ backgroundColor: '#ecfdf5', color: '#047857', padding: '3px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', border: '1px solid #a7f3d0' }}>● Live Sync</span>
                       </div>
                       <p style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: '13px' }}>
                         Full transparency oversight across Patients, Doctors on Shift, Diagnostic Labs, Photos, Discharges, and Video Grievances.
@@ -2083,33 +2348,39 @@ function App() {
                     </button>
                   </div>
 
-                  {/* SECTION 1: REGISTERED PATIENTS */}
+                  {/* SECTION 1: REGISTERED PATIENTS WITH PHOTOS */}
                   {adminActiveTab === 'registered-patients' && (
                     <div className="royal-card" style={{ padding: '24px' }}>
                       <h3 style={{ margin: '0 0 14px 0', fontSize: '16px' }}>👥 Registered Patients</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {filteredAdminRegisteredPatients.map((p, idx) => (
                           <div key={p.patientId} onClick={() => handleAdminInspectPatient(p.patientId)} className="royal-card royal-card-interactive" style={{ padding: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <strong>#{idx + 1} {p.name}</strong> ({p.patientId})
-                              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Mobile: +91 {p.phoneNumber} • Reg: {formatDateTime(p.createdAt)}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #cbd5e1' }} />
+                              <div>
+                                <strong>#{idx + 1} {p.name}</strong> ({p.patientId})
+                                <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Mobile: +91 {p.phoneNumber} • Reg: {formatDateTime(p.createdAt)}</div>
+                              </div>
                             </div>
-                            <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: '800' }}>Open Patient File ➔</span>
+                            <span style={{ fontSize: '12px', color: '#1d4ed8', fontWeight: '800' }}>Open Patient File ➔</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* SECTION 2: DOCTORS ON DUTY */}
+                  {/* SECTION 2: DOCTORS ON DUTY WITH PHOTOS */}
                   {adminActiveTab === 'doctors-duty' && (
                     <div className="royal-card" style={{ padding: '24px' }}>
                       <h3 style={{ margin: '0 0 14px 0', fontSize: '16px' }}>👨‍⚕️ Doctors on Duty</h3>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
                         {doctorsList.map(doc => (
-                          <div key={doc.doctorId} onClick={() => setAdminSelectedDoctor(doc)} className="royal-card royal-card-interactive" style={{ padding: '16px' }}>
-                            <strong style={{ fontSize: '15px' }}>{doc.name}</strong>
-                            <div style={{ fontSize: '12px', color: '#4f46e5', fontWeight: '700' }}>{doc.department}</div>
+                          <div key={doc.doctorId} onClick={() => setAdminSelectedDoctor(doc)} className="royal-card royal-card-interactive" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            <img src={doc.photoUrl || activeDoctorPhoto} alt={doc.name} style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #4338ca' }} />
+                            <div>
+                              <strong style={{ fontSize: '15px' }}>{doc.name}</strong>
+                              <div style={{ fontSize: '12px', color: '#4338ca', fontWeight: '700' }}>{doc.department}</div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2155,8 +2426,11 @@ function App() {
                       <h3 style={{ margin: '0 0 14px 0', fontSize: '16px' }}>🏁 Discharged Patients Permanent Archive</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         {filteredAdminDischargedPatients.map((p, idx) => (
-                          <div key={p.patientId} onClick={() => handleAdminInspectPatient(p.patientId)} className="royal-card royal-card-interactive" style={{ border: '1px solid #a7f3d0', padding: '14px', backgroundColor: '#ecfdf5' }}>
-                            <strong>#{idx + 1} {p.name}</strong> ({p.patientId}) - Discharged
+                          <div key={p.patientId} onClick={() => handleAdminInspectPatient(p.patientId)} className="royal-card royal-card-interactive" style={{ border: '1px solid #a7f3d0', padding: '14px', backgroundColor: '#ecfdf5', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #a7f3d0' }} />
+                            <div>
+                              <strong>#{idx + 1} {p.name}</strong> ({p.patientId}) - Discharged
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2196,7 +2470,40 @@ function App() {
         </div>
       )}
 
-      {/* MODALS (ADMIN VIDEO WATCH & RESOLUTION, DETAIL INSPECTOR, LOGIN, WEBCAM) */}
+      {/* MODAL: PRESET AVATAR PICKER */}
+      {showAvatarPickerModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 15000, padding: '20px' }}>
+          <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '520px', borderRadius: '24px', padding: '28px', position: 'relative' }}>
+            <button onClick={() => setShowAvatarPickerModal(false)} style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: '800' }}>🎭 Choose Profile Avatar</h3>
+            <p style={{ margin: '0 0 18px 0', fontSize: '13px', color: '#64748b' }}>Select your preferred photo avatar:</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '20px' }}>
+              {PRESET_AVATARS.map(avatar => (
+                <div
+                  key={avatar.id}
+                  onClick={() => {
+                    setPatientEditForm({ ...patientEditForm, photoUrl: avatar.url })
+                    setShowAvatarPickerModal(false)
+                  }}
+                  style={{
+                    padding: '8px',
+                    borderRadius: '16px',
+                    border: patientEditForm.photoUrl === avatar.url ? '3px solid #1e3a8a' : '1px solid #cbd5e1',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    backgroundColor: '#f8fafc'
+                  }}>
+                  <img src={avatar.url} alt={avatar.label} style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover' }} />
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#334155', display: 'block', marginTop: '4px' }}>{avatar.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADMIN VIDEO WATCH & RESOLUTION */}
       {selectedAdminGrievance && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 14000, padding: '20px' }}>
           <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '600px', borderRadius: '24px', padding: '30px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -2217,7 +2524,7 @@ function App() {
             <form onSubmit={handleAdminRespondToGrievance}>
               <label style={{ fontSize: '12px', fontWeight: '700', display: 'block', marginBottom: '4px' }}>Official Response to Patient:</label>
               <textarea rows={3} required placeholder="Type the action taken e.g. Staff reprimanded, medicine issued immediately..." style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '14px', boxSizing: 'border-box' }} value={adminGrievanceReplyText} onChange={e => setAdminGrievanceReplyText(e.target.value)} />
-              <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
+              <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
                 Send Response to Patient ➔
               </button>
             </form>
@@ -2225,16 +2532,23 @@ function App() {
         </div>
       )}
 
+      {/* MODAL: ADMIN FULL PATIENT EHR INSPECTION */}
       {adminInspectedPatientFile && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '20px' }}>
           <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '820px', borderRadius: '24px', padding: '32px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
             <button onClick={() => setAdminInspectedPatientFile(null)} style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
-            <h2 style={{ margin: '0 0 4px 0' }}>{adminInspectedPatientFile.patient?.name}</h2>
-            <span style={{ fontSize: '13px', color: '#64748b' }}>ID: {adminInspectedPatientFile.patient?.patientId} • Mobile: +91 {adminInspectedPatientFile.patient?.phoneNumber}</span>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '14px' }}>
+              <img src={adminInspectedPatientFile.patient?.photoUrl || DEFAULT_AVATAR} alt={adminInspectedPatientFile.patient?.name} style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #1e3a8a' }} />
+              <div>
+                <h2 style={{ margin: '0 0 2px 0' }}>{adminInspectedPatientFile.patient?.name}</h2>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>ID: {adminInspectedPatientFile.patient?.patientId} • Mobile: +91 {adminInspectedPatientFile.patient?.phoneNumber}</span>
+              </div>
+            </div>
 
             <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {adminInspectedPatientFile.timeline?.map((item, idx) => (
-                <div key={idx} style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+                <div key={idx} style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '13px' }}>
                   <strong>{item.stage}</strong> - {item.details}
                   <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{formatDateTime(item.timestamp)}</div>
                 </div>
@@ -2244,6 +2558,7 @@ function App() {
         </div>
       )}
 
+      {/* MODAL: WEBCAM CAPTURE */}
       {cameraModal.isOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '20px' }}>
           <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '580px', borderRadius: '24px', padding: '28px', position: 'relative' }}>
@@ -2255,16 +2570,16 @@ function App() {
                 <div style={{ backgroundColor: '#070e1e', borderRadius: '16px', overflow: 'hidden', height: '240px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '14px' }}>
                   <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
-                <button onClick={snapWebcamPhoto} style={{ width: '100%', padding: '12px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
-                  📸 Snap Live Photo Proof
+                <button onClick={snapWebcamPhoto} style={{ width: '100%', padding: '12px', backgroundColor: '#1e3a8a', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '13px', cursor: 'pointer' }}>
+                  📸 Snap Live Photo
                 </button>
               </div>
             ) : (
               <div>
                 <img src={capturedPhotoPreview} alt="Proof" style={{ width: '100%', maxHeight: '240px', borderRadius: '14px', objectFit: 'contain', marginBottom: '14px' }} />
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => { setCapturedPhotoPreview(null); startWebcam(); }} style={{ flex: 1, padding: '10px', backgroundColor: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>🔄 Retake</button>
-                  <button onClick={confirmCapturedPhoto} style={{ flex: 1.4, padding: '10px', backgroundColor: '#059669', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '12px', cursor: 'pointer' }}>✅ Confirm Proof</button>
+                  <button onClick={() => { setCapturedPhotoPreview(null); startWebcam(); }} style={{ flex: 1, padding: '10px', backgroundColor: '#f1f5f9', color: '#070e1e', border: '1px solid #cbd5e1', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>🔄 Retake</button>
+                  <button onClick={confirmCapturedPhoto} style={{ flex: 1.4, padding: '10px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', fontSize: '12px', cursor: 'pointer' }}>✅ Confirm Photo</button>
                 </div>
               </div>
             )}
@@ -2272,6 +2587,7 @@ function App() {
         </div>
       )}
 
+      {/* MODAL: LOGIN */}
       {showLoginModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
           <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '480px', borderRadius: '24px', padding: '32px', position: 'relative' }}>
@@ -2324,16 +2640,20 @@ function App() {
                   <form onSubmit={handlePatientPasswordLogin}>
                     <input required type="text" placeholder="Patient ID (e.g. PT-1001)" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={loginId} onChange={e => setLoginId(e.target.value)} />
                     <input required type="password" placeholder="Passcode PIN" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '14px', boxSizing: 'border-box' }} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
-                    <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>Log In ➔</button>
+                    {loginError && <div style={{ color: '#be123c', fontSize: '12px', marginBottom: '8px' }}>{loginError}</div>}
+                    <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#1e3a8a', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>Log In ➔</button>
                   </form>
                 )}
 
                 {patientLoginMode === 'quick' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
                     {registeredPatients.map(p => (
-                      <button key={p.patientId} onClick={() => handleDirectPatientSelect(p)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '10px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
-                        <span>{p.name} ({p.patientId})</span>
-                        <span style={{ color: '#2563eb', fontWeight: '800' }}>Enter ➔</span>
+                      <button key={p.patientId} onClick={() => handleDirectPatientSelect(p)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '10px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <img src={p.photoUrl || DEFAULT_AVATAR} alt={p.name} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
+                          <span>{p.name} ({p.patientId})</span>
+                        </div>
+                        <span style={{ color: '#1d4ed8', fontWeight: '800' }}>Enter ➔</span>
                       </button>
                     ))}
                   </div>
@@ -2348,10 +2668,10 @@ function App() {
                   <input type="text" placeholder="e.g. op_staff" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={opStaffUser} onChange={e => setOpStaffUser(e.target.value)} />
                   <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Staff Passcode:</label>
                   <input type="password" placeholder="Passcode (gandhi2026)" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={opStaffPass} onChange={e => setOpStaffPass(e.target.value)} />
-                  {staffLoginError && <div style={{ color: '#e11d48', fontSize: '12px', marginBottom: '8px' }}>{staffLoginError}</div>}
-                  <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px', marginBottom: '8px' }}>Log In as Staff ➔</button>
+                  {staffLoginError && <div style={{ color: '#be123c', fontSize: '12px', marginBottom: '8px' }}>{staffLoginError}</div>}
+                  <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#b45309', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px', marginBottom: '8px' }}>Log In as Staff ➔</button>
                 </form>
-                <div style={{ textAlign: 'center', margin: '6px 0', fontSize: '11px', color: '#94a3b8' }}>— OR —</div>
+                <div style={{ textAlign: 'center', margin: '6px 0', fontSize: '11px', color: '#64748b' }}>— OR —</div>
                 <button 
                   onClick={() => persistLogin('op-desk', { name: 'O/P Receptionist (Desk #1)', staffId: 'STAFF-OP-01' })}
                   style={{ width: '100%', padding: '10px', backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
@@ -2363,9 +2683,12 @@ function App() {
             {loginRole === 'doctor' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {doctorsList.map(doc => (
-                  <button key={doc.doctorId} onClick={() => handleRoleSelectLogin('doctor', doc)} style={{ padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '12px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }}>
-                    <strong>{doc.name} ({doc.department})</strong>
-                    <span style={{ color: '#4f46e5', fontWeight: '800' }}>Enter ➔</span>
+                  <button key={doc.doctorId} onClick={() => handleRoleSelectLogin('doctor', doc)} style={{ padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: '12px', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <img src={doc.photoUrl || activeDoctorPhoto} alt={doc.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
+                      <strong>{doc.name} ({doc.department})</strong>
+                    </div>
+                    <span style={{ color: '#4338ca', fontWeight: '800' }}>Enter ➔</span>
                   </button>
                 ))}
               </div>

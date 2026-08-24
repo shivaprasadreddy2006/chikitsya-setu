@@ -5,7 +5,7 @@ const doctorSchema = new mongoose.Schema({
         type: String, 
         required: true, 
         unique: true 
-    }, // e.g., 'DR-101'
+    }, // e.g., 'DR-GEN-01'
     
     name: { 
         type: String, 
@@ -17,10 +17,14 @@ const doctorSchema = new mongoose.Schema({
         required: true 
     }, // e.g., 'General Medicine', 'Cardiology'
     
-    // These two fields power our "Equal Split" logic!
+    photoUrl: {
+        type: String,
+        default: ''
+    },
+
     isOnShift: { 
         type: Boolean, 
-        default: false 
+        default: true 
     },
     
     currentQueueCount: { 

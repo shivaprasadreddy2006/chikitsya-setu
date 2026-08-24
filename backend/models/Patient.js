@@ -32,6 +32,11 @@ const patientSchema = new mongoose.Schema({
         required: true
     },
 
+    photoUrl: {
+        type: String,
+        default: ''
+    },
+
     // OTP fields for Forgot Password / WhatsApp Login
     otp: {
         type: String
@@ -58,17 +63,33 @@ const patientSchema = new mongoose.Schema({
         ]
     },
     
-    // Links patient to their assigned doctor
+    // Doctor assigned
     assignedDoctorId: {
+        type: String,
+        ref: 'Doctor'
+    },
+
+    // Doctor Consultation Notes
+    doctorNotes: {
         type: String
     },
 
-    // Clinical Discharge Summary from Doctor
-    dischargeSummary: { type: String },
-    dischargeType: { type: String },
-    followUpAdvice: { type: String },
-    dischargedByDoctorName: { type: String },
-    dischargedAt: { type: Date }
+    // Discharge Details
+    dischargedAt: {
+        type: Date
+    },
+    dischargedByDoctorName: {
+        type: String
+    },
+    dischargeSummary: {
+        type: String
+    },
+    dischargeType: {
+        type: String
+    },
+    followUpAdvice: {
+        type: String
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Patient', patientSchema);

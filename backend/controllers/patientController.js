@@ -223,11 +223,13 @@ exports.verifyOtpAndLogin = async (req, res) => {
                 age: patient.age,
                 gender: patient.gender,
                 phoneNumber: patient.phoneNumber,
+                photoUrl: patient.photoUrl,
                 currentStatus: patient.currentStatus,
                 assignedDoctor: doctor ? {
                     doctorId: doctor.doctorId,
                     name: doctor.name,
                     department: doctor.department,
+                    photoUrl: doctor.photoUrl,
                     currentQueueCount: doctor.currentQueueCount
                 } : null
             }
@@ -236,3 +238,37 @@ exports.verifyOtpAndLogin = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
+
+// 5. API: Update Patient Profile (Photo, Phone Number, Password, Name, etc.)
+exports.updateProfile = async (req, res) => {
+    try {
+        const { patientId } = req.params;
+        const { name, phoneNumber, password, photoUrl, age, gender } = req.body;
+
+        const patient = await Patient.findOne({ patientId });
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found!" });
+        }
+
+        if (name) patient.name = name;
+        if (phoneNumber) patient.phoneNumber = phoneNumber;
+        if (password) patient.password = password;
+        if (photoUrl !== undefined) patient.photoUrl = photoUrl;
+        if (age) patient.age = age;
+        if (gender) patient.gender = gender;
+
+        await patient.save();
+
+        res.status(200).json({
+            message: "Profile and account details updated successfully!",
+            patient,
+            whatsAppNotification: {
+                recipient: patient.phoneNumber,
+                message: `🔐 *Gandhi Hospital Profile Update*\nHello *${patient.name}*,\nYour account details (Mobile / Password / Profile Photo) have been updated successfully.\n\n📱 *Updated Mobile:* +91 ${patient.phoneNumber}\n🔑 *Passcode:* ${patient.password}`
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Error updating profile", error: error.message });
+    }
+};
+

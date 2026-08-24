@@ -5,7 +5,8 @@ const {
     registerPatient, 
     loginPatient, 
     sendOtp, 
-    verifyOtpAndLogin 
+    verifyOtpAndLogin,
+    updateProfile
 } = require('../controllers/patientController');
 
 // 0. List all patients (for quick testing / oversight)
@@ -22,5 +23,8 @@ router.post('/send-otp', sendOtp);
 
 // 4. Patient: Verify OTP & Direct Login
 router.post('/verify-otp', verifyOtpAndLogin);
+
+// 5. Patient: Update Profile / Account Details (Photo, Mobile, Password)
+router.put('/profile/:patientId', updateProfile);
 
 module.exports = router;
