@@ -194,9 +194,8 @@ function App() {
     }
   }
 
-  // ---------- AI ASSISTANT DISPATCH (REAL AI REASONING) ----------
-  const sendQueryToAI = async (queryText) => {
-    if (!queryText || !queryText.trim()) return
+  const sendQueryToAI = async (rawQuery) => {
+    const queryText = (rawQuery && rawQuery.trim()) ? rawQuery.trim() : (voiceLang === 'te-IN' ? 'నా తదుపరి దశ ఏమిటి మరియు నేను ఎక్కడికి వెళ్ళాలి?' : 'What is my next step and where should I go now?')
     setUserVoiceQuery(queryText)
     setIsAiLoading(true)
     stopSpeaking()
@@ -822,16 +821,46 @@ function App() {
               </div>
 
               {/* Text Input Option for Typing */}
-              <form onSubmit={(e) => { e.preventDefault(); sendQueryToAI(customTextQuery); setCustomTextQuery(''); }} style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  sendQueryToAI(customTextQuery);
+                  setCustomTextQuery('');
+                }}
+                style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
                 <input
                   type="text"
-                  placeholder="Or type your question here (e.g. Where is Room 105 / What is my queue?)..."
-                  style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontSize: '13px' }}
+                  placeholder={voiceLang === 'te-IN' ? "మీ ప్రశ్న ఇక్కడ టైప్ చేయండి (ఉదా. డాక్టర్ ఎక్కడ / నా మందులు ఏమిటి?)..." : "Type any question (e.g. Where is doctor / What are my medicines?)..."}
+                  style={{
+                    flex: 1,
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #3b82f6',
+                    backgroundColor: '#1e293b',
+                    color: '#ffffff',
+                    fontSize: '14px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
                   value={customTextQuery}
                   onChange={e => setCustomTextQuery(e.target.value)}
                 />
-                <button type="submit" style={{ padding: '10px 18px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}>
-                  Ask AI ➔
+                <button
+                  type="submit"
+                  disabled={isAiLoading}
+                  style={{
+                    padding: '12px 22px',
+                    backgroundColor: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.4)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                  {isAiLoading ? '⏳ Thinking...' : 'Ask AI ➔'}
                 </button>
               </form>
 
