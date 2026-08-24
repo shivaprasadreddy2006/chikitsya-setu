@@ -874,6 +874,43 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
+  const handleDoctorReferral = async (e) => {
+    e.preventDefault()
+    if (!activePatientForExam) return
+    try {
+      const fromDoc = doctorsList.find(d => d.doctorId === selectedDoctorId)
+      const res = await axios.post(`${API_BASE}/referrals/create`, {
+        fromDoctorId: selectedDoctorId,
+        fromDoctorName: fromDoc?.name || 'Physician',
+        patientId: activePatientForExam.patientId,
+        toDepartment: referralDept,
+        reason: referralReason
+      })
+      setDoctorMessage(`✅ ${res.data.message}`)
+      fetchDoctorQueue(selectedDoctorId)
+      fetchDoctors()
+      inspectPatientTimeline(activePatientForExam)
+    } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
+  }
+
+  const handleDoctorAdmit = async (e) => {
+    e.preventDefault()
+    if (!activePatientForExam) return
+    try {
+      const res = await axios.post(`${API_BASE}/admissions/admit`, {
+        admittingDoctorId: selectedDoctorId,
+        patientId: activePatientForExam.patientId,
+        wardType: admitWard,
+        bedNumber: admitBed,
+        diagnosis: clinicalNotes || 'Under Inpatient Treatment'
+      })
+      setDoctorMessage(`✅ ${res.data.message}`)
+      fetchDoctorQueue(selectedDoctorId)
+      inspectPatientTimeline(activePatientForExam)
+      fetchAdmissions()
+    } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
+  }
+
   const handleDoctorDischargeSubmit = async (e) => {
     e.preventDefault()
     if (!activePatientForExam) return
@@ -1799,12 +1836,33 @@ function App() {
                     <div className="animate-fade-in">
                       <h3 style={{ margin: '0 0 16px 0', color: '#070e1e', fontSize: '17px' }}>Diagnostic Laboratory Reports</h3>
                       {patientFullFile?.labRequests?.map(lab => (
-                        <div key={lab._id} className="royal-card" style={{ padding: '20px', marginBottom: '14px' }}>
+                        <div
+                          key={lab._id}
+                          onClick={() => setSelectedDetailItem({
+                            stage: `Diagnostic Lab: ${lab.testName}`,
+                            icon: '🔬',
+                            timestamp: lab.updatedAt || lab.createdAt,
+                            performedBy: `Lab Attendant (Ordered by ${lab.doctorName})`,
+                            doctorName: lab.doctorName,
+                            details: `Diagnostic test ${lab.testName} (Status: ${lab.status})`,
+                            clinicalFindings: lab.findings || 'Findings recorded and signed digitally.',
+                            deliveryMode: lab.deliveryMode || 'DIGITAL_EHR',
+                            photoProof: lab.photoProof
+                          })}
+                          className="royal-card royal-card-interactive"
+                          style={{ padding: '20px', marginBottom: '14px', cursor: 'pointer' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                             <strong style={{ fontSize: '15px' }}>{lab.testName}</strong>
-                            <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: lab.status === 'REPORT_READY' ? '#ecfdf5' : '#fffbeb', color: lab.status === 'REPORT_READY' ? '#047857' : '#b45309' }}>
-                              {lab.status === 'REPORT_READY' ? '✅ Report Ready' : '⏳ Processing'}
-                            </span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              {lab.photoProof && (
+                                <span style={{ fontSize: '11px', backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '9999px', fontWeight: '800' }}>
+                                  📸 Photo Proof
+                                </span>
+                              )}
+                              <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: lab.status === 'REPORT_READY' ? '#ecfdf5' : '#fffbeb', color: lab.status === 'REPORT_READY' ? '#047857' : '#b45309' }}>
+                                {lab.status === 'REPORT_READY' ? '✅ Report Ready' : '⏳ Processing'}
+                              </span>
+                            </div>
                           </div>
                           <div style={{ fontSize: '12px', color: '#64748b' }}>Ordered by {lab.doctorName} • {formatDateTime(lab.createdAt)}</div>
                           {lab.findings && (
@@ -1815,7 +1873,7 @@ function App() {
                           {lab.photoProof && (
                             <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <img src={lab.photoProof} alt="Proof" style={{ height: '54px', borderRadius: '8px' }} />
-                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: '800' }}>✓ Verified diagnostic film attached</span>
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: '800' }}>✓ Verified diagnostic film attached (Click to expand)</span>
                             </div>
                           )}
                         </div>
@@ -1828,16 +1886,43 @@ function App() {
                     <div className="animate-fade-in">
                       <h3 style={{ margin: '0 0 16px 0', color: '#070e1e', fontSize: '17px' }}>Prescribed Medications</h3>
                       {patientFullFile?.prescriptions?.map(rx => (
-                        <div key={rx._id} className="royal-card" style={{ padding: '20px', marginBottom: '14px' }}>
+                        <div
+                          key={rx._id}
+                          onClick={() => setSelectedDetailItem({
+                            stage: `Pharmacy Prescription`,
+                            icon: '💊',
+                            timestamp: rx.updatedAt || rx.createdAt,
+                            performedBy: `Chief Pharmacist (Authorized by ${rx.doctorName})`,
+                            doctorName: rx.doctorName,
+                            details: rx.notes || `Prescription with ${rx.medicines?.length || 0} medicines.`,
+                            prescribedMedicines: rx.medicines,
+                            photoProof: rx.photoProof,
+                            dispenseStatus: rx.status
+                          })}
+                          className="royal-card royal-card-interactive"
+                          style={{ padding: '20px', marginBottom: '14px', cursor: 'pointer' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                             <strong style={{ fontSize: '14px' }}>Prescription by {rx.doctorName}</strong>
-                            <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#ecfdf5' : '#fffbeb', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#047857' : '#b45309' }}>
-                              {rx.status}
-                            </span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              {rx.photoProof && (
+                                <span style={{ fontSize: '11px', backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '9999px', fontWeight: '800' }}>
+                                  📸 Handover Proof
+                                </span>
+                              )}
+                              <span style={{ padding: '4px 12px', borderRadius: '9999px', fontSize: '11px', fontWeight: '800', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#ecfdf5' : '#fffbeb', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#047857' : '#b45309' }}>
+                                {rx.status}
+                              </span>
+                            </div>
                           </div>
                           <ul style={{ margin: '0 0 10px 0', paddingLeft: '20px', fontSize: '13px' }}>
                             {rx.medicines?.map((m, i) => <li key={i}>{m.name} - {m.dosage} ({m.durationDays} days)</li>)}
                           </ul>
+                          {rx.photoProof && (
+                            <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <img src={rx.photoProof} alt="Proof" style={{ height: '50px', borderRadius: '8px' }} />
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: '800' }}>✓ Verified medicines dispensing photo attached</span>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1848,7 +1933,21 @@ function App() {
                     <div className="animate-fade-in">
                       <h3 style={{ margin: '0 0 16px 0', color: '#070e1e', fontSize: '17px' }}>Inpatient Ward & Bed Ledger</h3>
                       {patientFullFile?.admission ? (
-                        <div className="royal-card" style={{ padding: '22px' }}>
+                        <div
+                          onClick={() => setSelectedDetailItem({
+                            stage: `Inpatient Ward Admission`,
+                            icon: '🛏️',
+                            timestamp: patientFullFile.admission.admittedAt,
+                            performedBy: `Ward Staff (Authorized by ${patientFullFile.admission.admittingDoctorName || 'Duty Physician'})`,
+                            details: `Admitted to ${patientFullFile.admission.wardType} - Bed ${patientFullFile.admission.bedNumber}`,
+                            wardAllocation: {
+                              ward: patientFullFile.admission.wardType,
+                              bed: patientFullFile.admission.bedNumber,
+                              resources: patientFullFile.admission.resourcesAllocated
+                            }
+                          })}
+                          className="royal-card royal-card-interactive"
+                          style={{ padding: '22px', cursor: 'pointer' }}>
                           <strong>Ward: {patientFullFile.admission.wardType} ({patientFullFile.admission.bedNumber})</strong>
                           <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Admitted on: {formatDateTime(patientFullFile.admission.admittedAt)}</div>
                           <h4 style={{ margin: '14px 0 6px 0', fontSize: '13px' }}>Consumables Administered:</h4>
@@ -2350,34 +2449,102 @@ function App() {
                     </div>
 
                     {/* Examination Desk */}
+                    {/* Examination Desk & Complete Medical History */}
                     {activePatientForExam && (
                       <div className="royal-card" style={{ padding: '24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: '12px', marginBottom: '14px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {renderPatientAvatar(activePatientForExam, 44, '2px solid #4338ca')}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {renderPatientAvatar(activePatientForExam, 48, '2px solid #4338ca')}
                             <div>
-                              <span style={{ fontSize: '11px', color: '#4338ca', fontWeight: '800' }}>Active Examination File</span>
-                              <h3 style={{ margin: '2px 0 0 0', fontSize: '16px', fontWeight: '800' }}>{activePatientForExam.name} ({activePatientForExam.patientId})</h3>
+                              <span style={{ fontSize: '11px', color: '#4338ca', fontWeight: '800', textTransform: 'uppercase' }}>Active Examination File</span>
+                              <h3 style={{ margin: '2px 0 0 0', fontSize: '17px', fontWeight: '800' }}>{activePatientForExam.name}</h3>
+                              <span style={{ fontSize: '12px', color: '#64748b' }}>{activePatientForExam.patientId} • {activePatientForExam.age}y {activePatientForExam.gender} • Mobile: +91 {activePatientForExam.phoneNumber}</span>
                             </div>
                           </div>
-                          <button onClick={() => setActivePatientForExam(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}>✕</button>
+                          <button onClick={() => { setActivePatientForExam(null); setInspectedPatientFullFile(null); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer' }}>✕</button>
+                        </div>
+
+                        {doctorMessage && (
+                          <div style={{ marginBottom: '14px', padding: '10px 14px', backgroundColor: '#ecfdf5', color: '#065f46', borderRadius: '10px', border: '1px solid #a7f3d0', fontSize: '12px', fontWeight: '700' }}>
+                            {doctorMessage}
+                          </div>
+                        )}
+
+                        {/* Complete Journey Timeline & Previous History */}
+                        <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #cbd5e1', marginBottom: '18px', maxHeight: '240px', overflowY: 'auto' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <strong style={{ fontSize: '13px', color: '#070e1e' }}>
+                              🕒 Complete Journey & Previous Medical History:
+                            </strong>
+                            <span style={{ fontSize: '11px', color: '#1d4ed8', fontWeight: '700' }}>Click milestone for details</span>
+                          </div>
+
+                          {!inspectedPatientFullFile?.timeline || inspectedPatientFullFile.timeline.length === 0 ? (
+                            <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0 }}>Loading patient history...</p>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {inspectedPatientFullFile.timeline.map((evt, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => setSelectedDetailItem(evt)}
+                                  className="royal-card-interactive"
+                                  style={{
+                                    display: 'flex',
+                                    gap: '10px',
+                                    fontSize: '12px',
+                                    padding: '10px 12px',
+                                    borderRadius: '10px',
+                                    backgroundColor: 'white',
+                                    border: '1px solid #cbd5e1',
+                                    cursor: 'pointer',
+                                    alignItems: 'flex-start'
+                                  }}>
+                                  <span style={{ fontSize: '16px' }}>{evt.icon}</span>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <strong style={{ color: '#070e1e' }}>{evt.stage}</strong>
+                                      <span style={{ fontSize: '10px', color: '#1d4ed8', fontWeight: '700' }}>🕒 {formatDateTime(evt.timestamp)}</span>
+                                    </div>
+                                    <p style={{ margin: '2px 0 0 0', color: '#475569', fontSize: '11.5px' }}>{evt.details}</p>
+                                    <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+                                      By: <strong>{evt.performedBy || evt.doctorName}</strong>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         {/* Action Tabs */}
                         <div style={{ display: 'flex', gap: '6px', marginBottom: '14px', borderBottom: '1px solid #cbd5e1', paddingBottom: '8px', flexWrap: 'wrap' }}>
                           <button onClick={() => setDoctorActionTab('lab')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'lab' ? '#4338ca' : '#f1f5f9', color: doctorActionTab === 'lab' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>🧪 Order Lab</button>
                           <button onClick={() => setDoctorActionTab('rx')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'rx' ? '#4338ca' : '#f1f5f9', color: doctorActionTab === 'rx' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>💊 Prescribe</button>
+                          <button onClick={() => setDoctorActionTab('referral')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'referral' ? '#4338ca' : '#f1f5f9', color: doctorActionTab === 'referral' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>🔄 Transfer/Refer</button>
+                          <button onClick={() => setDoctorActionTab('admit')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'admit' ? '#4338ca' : '#f1f5f9', color: doctorActionTab === 'admit' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '700' }}>🛏️ Admit Bed</button>
                           <button onClick={() => setDoctorActionTab('discharge')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '9999px', backgroundColor: doctorActionTab === 'discharge' ? '#047857' : '#ecfdf5', color: doctorActionTab === 'discharge' ? 'white' : '#065f46', cursor: 'pointer', fontWeight: '800' }}>🏁 Discharge</button>
                         </div>
 
                         {doctorActionTab === 'lab' && (
                           <form onSubmit={handleDoctorOrderLab}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Select Diagnostic Test:</label>
                             <select style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', fontSize: '13px' }} value={selectedTest} onChange={e => setSelectedTest(e.target.value)}>
                               <option>Complete Blood Count (CBC)</option>
                               <option>Serum Creatinine & Urea</option>
                               <option>Lipid Profile</option>
                               <option>Chest X-Ray (PA View)</option>
+                              <option>Ultrasound Abdomen</option>
+                              <option>ECG & 2D Echo (Cardiology)</option>
+                              <option>Bone Mineral Density Scan</option>
                             </select>
+
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Delivery Channel:</label>
+                            <select style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '12px', fontSize: '13px' }} value={labDeliveryMode} onChange={e => setLabDeliveryMode(e.target.value)}>
+                              <option value="DIGITAL_EHR">⚡ Instant Digital Report to Patient EHR (Zero Bribery)</option>
+                              <option value="PHYSICAL_COUNTER">📄 Physical Hard-Copy Report (Room 105 Counter #1)</option>
+                              <option value="BOTH">📱 Digital EHR + Physical Hard-Copy</option>
+                            </select>
+
                             <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#0369a1', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
                               Order Diagnostic Test ➔
                             </button>
@@ -2386,6 +2553,7 @@ function App() {
 
                         {doctorActionTab === 'rx' && (
                           <form onSubmit={handleDoctorPrescribe}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Prescribed Medicines (Comma separated):</label>
                             <input type="text" style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', fontSize: '13px' }} value={rxMedicines} onChange={e => setRxMedicines(e.target.value)} />
                             <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
                               Send Prescription to Pharmacy ➔
@@ -2393,8 +2561,44 @@ function App() {
                           </form>
                         )}
 
+                        {doctorActionTab === 'referral' && (
+                          <form onSubmit={handleDoctorReferral}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Transfer to Super-Specialty:</label>
+                            <select style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', fontSize: '13px' }} value={referralDept} onChange={e => setReferralDept(e.target.value)}>
+                              <option value="Cardiology">Cardiology (Specialty Wing C - Room 201)</option>
+                              <option value="Orthopedics">Orthopedics (Trauma Wing - Room 204)</option>
+                              <option value="Pulmonology">Pulmonology (Chest Clinic - Room 302)</option>
+                              <option value="Nephrology">Nephrology (Dialysis Unit - Room 401)</option>
+                              <option value="General Surgery">General Surgery (Surgical Block - Room 108)</option>
+                            </select>
+
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Reason for Referral:</label>
+                            <input type="text" style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '12px', boxSizing: 'border-box' }} value={referralReason} onChange={e => setReferralReason(e.target.value)} />
+
+                            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#b45309', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
+                              Auto-Assign to Specialist (Shortest Queue) ➔
+                            </button>
+                          </form>
+                        )}
+
+                        {doctorActionTab === 'admit' && (
+                          <form onSubmit={handleDoctorAdmit}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Ward Selection:</label>
+                            <select style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '12px', fontSize: '13px' }} value={admitWard} onChange={e => setAdmitWard(e.target.value)}>
+                              <option>General Ward (Male)</option>
+                              <option>General Ward (Female)</option>
+                              <option>Emergency ICU</option>
+                              <option>Post-Operative Ward</option>
+                            </select>
+                            <button type="submit" style={{ width: '100%', padding: '10px', backgroundColor: '#6d28d9', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
+                              Admit Patient to Inpatient Bed ➔
+                            </button>
+                          </form>
+                        )}
+
                         {doctorActionTab === 'discharge' && (
                           <form onSubmit={handleDoctorDischargeSubmit}>
+                            <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Discharge Clinical Summary:</label>
                             <textarea rows={3} style={{ width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', fontSize: '13px', boxSizing: 'border-box' }} value={dischargeSummaryText} onChange={e => setDischargeSummaryText(e.target.value)} />
                             <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>
                               🏁 Authorize Discharge & Complete ➔
@@ -3130,6 +3334,122 @@ function App() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* INTERACTIVE CLINICAL DETAIL INSPECTION MODAL */}
+      {selectedDetailItem && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, padding: '20px' }}>
+          <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '640px', borderRadius: '24px', padding: '32px', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
+            <button onClick={() => setSelectedDetailItem(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <span style={{ fontSize: '28px', width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #bfdbfe' }}>{selectedDetailItem.icon || '📋'}</span>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Official Clinical Record</span>
+                <h3 style={{ margin: '2px 0 0 0', color: '#070e1e', fontSize: '20px', fontWeight: '800' }}>{selectedDetailItem.stage || 'Clinical Activity Details'}</h3>
+              </div>
+            </div>
+
+            {/* Timestamp & Clinician Banner */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', backgroundColor: '#f8fafc', padding: '14px 18px', borderRadius: '14px', border: '1px solid #cbd5e1', marginBottom: '18px' }}>
+              <div>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block', fontWeight: '700' }}>Date & Time</span>
+                <strong style={{ fontSize: '13px', color: '#070e1e' }}>🕒 {formatDateTime(selectedDetailItem.timestamp)}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block', fontWeight: '700' }}>Authorizing Clinician / Staff</span>
+                <strong style={{ fontSize: '13px', color: '#1d4ed8' }}>👨‍⚕️ {selectedDetailItem.performedBy || selectedDetailItem.doctorName || 'Attending Physician'}</strong>
+              </div>
+            </div>
+
+            {/* Anti-Bribery Delivery Mode Notice */}
+            {selectedDetailItem.deliveryMode && (
+              <div style={{ backgroundColor: selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#fffbeb' : '#ecfdf5', border: `1px solid ${selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#fde68a' : '#a7f3d0'}`, padding: '14px 18px', borderRadius: '14px', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '18px' }}>{selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '📄' : '⚡'}</span>
+                  <strong style={{ color: selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#92400e' : '#047857', fontSize: '14px' }}>
+                    {selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? 'Physical Hard-Copy Collection Notice' : 'Digital Direct EHR Upload (Zero Bribery)'}
+                  </strong>
+                </div>
+                <p style={{ margin: 0, fontSize: '12px', color: selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#78350f' : '#065f46', lineHeight: '1.4' }}>
+                  {selectedDetailItem.deliveryInstructions || (selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? 'Present your Patient ID at Diagnostic Counter 1 (Room 105) to collect the printed diagnostic film.' : 'This report is digitally signed and uploaded to your EHR portal automatically, eliminating middleman bribery.')}
+                </p>
+              </div>
+            )}
+
+            {/* Diagnostic Findings */}
+            {selectedDetailItem.clinicalFindings && (
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
+                <strong style={{ fontSize: '13px', color: '#070e1e', display: 'block', marginBottom: '8px' }}>🔬 Clinical Diagnostic Findings:</strong>
+                <div style={{ padding: '12px 14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '13px', color: '#070e1e', lineHeight: '1.5', fontWeight: '600' }}>
+                  {selectedDetailItem.clinicalFindings}
+                </div>
+              </div>
+            )}
+
+            {/* Prescribed Medications */}
+            {selectedDetailItem.prescribedMedicines && selectedDetailItem.prescribedMedicines.length > 0 && (
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
+                <strong style={{ fontSize: '13px', color: '#070e1e', display: 'block', marginBottom: '8px' }}>💊 Prescribed Medication Regimen:</strong>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {selectedDetailItem.prescribedMedicines.map((m, idx) => (
+                    <div key={idx} style={{ padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <strong style={{ fontSize: '13px', color: '#070e1e' }}>{m.name}</strong>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Timing: {m.timing || 'As directed'} • Duration: {m.durationDays || 5} days</div>
+                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: '800', color: '#047857', backgroundColor: '#ecfdf5', padding: '2px 10px', borderRadius: '9999px', border: '1px solid #a7f3d0' }}>
+                        {m.dosage}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ward Bed & Consumables */}
+            {selectedDetailItem.wardAllocation && (
+              <div style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
+                <strong style={{ fontSize: '13px', color: '#070e1e', display: 'block', marginBottom: '8px' }}>🛏️ Inpatient Bed & Administered Supplies:</strong>
+                <div style={{ padding: '10px 14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #cbd5e1', marginBottom: '8px', fontSize: '13px' }}>
+                  Ward: <strong>{selectedDetailItem.wardAllocation.ward}</strong> • Bed: <strong>{selectedDetailItem.wardAllocation.bed}</strong>
+                </div>
+                {selectedDetailItem.wardAllocation.resources?.length > 0 && (
+                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#334155' }}>
+                    {selectedDetailItem.wardAllocation.resources.map((r, i) => (
+                      <li key={i}>{r.itemName} (Qty: {r.quantity}) - Logged by {r.loggedByStaff}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* General Activity Details */}
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
+              <strong style={{ fontSize: '13px', color: '#070e1e', display: 'block', marginBottom: '6px' }}>📝 Clinical Statement / Event Summary:</strong>
+              <p style={{ margin: 0, fontSize: '13px', color: '#334155', lineHeight: '1.5' }}>
+                {selectedDetailItem.details}
+              </p>
+            </div>
+
+            {/* Attached Photo Proof */}
+            {selectedDetailItem.photoProof && (
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <strong style={{ fontSize: '13px', color: '#047857' }}>📸 Photographic Handover / Diagnostic Film Proof:</strong>
+                  <span style={{ fontSize: '11px', color: '#047857', backgroundColor: '#ecfdf5', padding: '2px 8px', borderRadius: '9999px', fontWeight: '800' }}>✓ Verified Audit Record</span>
+                </div>
+                <img src={selectedDetailItem.photoProof} alt="Proof" style={{ width: '100%', maxHeight: '280px', objectFit: 'contain', borderRadius: '10px', backgroundColor: '#070e1e' }} />
+              </div>
+            )}
+
+            {/* Digital Authenticity Stamp */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '14px', fontSize: '11px', color: '#64748b' }}>
+              <span>🔒 Cryptographically Signed EHR Record</span>
+              <span style={{ color: '#047857', fontWeight: '800' }}>● Tamper-Proof Audit Active</span>
+            </div>
           </div>
         </div>
       )}
