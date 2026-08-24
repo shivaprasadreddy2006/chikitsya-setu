@@ -3,14 +3,27 @@ import axios from 'axios'
 
 const API_BASE = 'http://localhost:5000/api'
 
+// Helper to retrieve persisted session from localStorage
+const getSavedSession = () => {
+  try {
+    const saved = localStorage.getItem('chikitsya_session')
+    if (saved) return JSON.parse(saved)
+  } catch (e) {
+    console.error('Session parse error:', e)
+  }
+  return null
+}
+
 function App() {
+  const savedSession = getSavedSession()
+
   // Navigation View: 'home' | 'patient' | 'doctor' | 'lab' | 'pharmacy' | 'ward' | 'op-desk' | 'admin'
-  const [activeView, setActiveView] = useState('home')
+  const [activeView, setActiveView] = useState(savedSession ? savedSession.role : 'home')
 
   // Login Modal
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [loginRole, setLoginRole] = useState('patient')
-  const [currentUser, setCurrentUser] = useState(null)
+  const [currentUser, setCurrentUser] = useState(savedSession ? savedSession : null)
 
   // ---------- STAFF / OP DESK LOGIN STATE ----------
   const [opStaffUser, setOpStaffUser] = useState('')
@@ -98,8 +111,10 @@ function App() {
     if (activeView === 'pharmacy') fetchPrescriptions()
     if (activeView === 'ward') fetchAdmissions()
     if (activeView === 'admin') fetchHospitalStats()
-    if (activeView === 'patient' && currentUser?.role === 'patient') fetchPatientFullFile(currentUser.data.patientId)
-  }, [activeView, selectedDoctorId])
+    if (activeView === 'patient' && currentUser?.role === 'patient' && currentUser.data?.patientId) {
+      fetchPatientFullFile(currentUser.data.patientId)
+    }
+  }, [activeView, selectedDoctorId, currentUser])
 
   const fetchDoctors = async () => {
     try {
@@ -245,14 +260,21 @@ function App() {
     }
   }
 
+  // ---------- PERSISTENT LOGIN HELPER ----------
+  const persistLogin = (role, data) => {
+    const session = { role, data }
+    setCurrentUser(session)
+    setActiveView(role)
+    localStorage.setItem('chikitsya_session', JSON.stringify(session))
+    setShowLoginModal(false)
+  }
+
   // ---------- AUTH HANDLERS ----------
   const handleOpStaffLogin = (e) => {
     e.preventDefault()
     setStaffLoginError('')
     if (opStaffUser.trim() === 'op_staff' && opStaffPass.trim() === 'gandhi2026') {
-      setCurrentUser({ role: 'op-desk', data: { name: 'O/P Receptionist (Desk #1)', staffId: 'STAFF-OP-01' } })
-      setActiveView('op-desk')
-      setShowLoginModal(false)
+      persistLogin('op-desk', { name: 'O/P Receptionist (Desk #1)', staffId: 'STAFF-OP-01' })
       setOpStaffUser('')
       setOpStaffPass('')
     } else {
@@ -265,10 +287,8 @@ function App() {
     setLoginError('')
     try {
       const res = await axios.post(`${API_BASE}/patients/login`, { patientId: loginId, password: loginPassword })
-      setCurrentUser({ role: 'patient', data: res.data.patient })
+      persistLogin('patient', res.data.patient)
       await fetchPatientFullFile(res.data.patient.patientId)
-      setActiveView('patient')
-      setShowLoginModal(false)
       setLoginId('')
       setLoginPassword('')
     } catch (err) {
@@ -277,10 +297,8 @@ function App() {
   }
 
   const handleDirectPatientSelect = async (patient) => {
-    setCurrentUser({ role: 'patient', data: patient })
+    persistLogin('patient', patient)
     await fetchPatientFullFile(patient.patientId)
-    setActiveView('patient')
-    setShowLoginModal(false)
   }
 
   const handleSendOtp = async (e) => {
@@ -301,10 +319,8 @@ function App() {
     setOtpError('')
     try {
       const res = await axios.post(`${API_BASE}/patients/verify-otp`, { identifier: otpIdentifier, otp: enteredOtp })
-      setCurrentUser({ role: 'patient', data: res.data.patient })
+      persistLogin('patient', res.data.patient)
       await fetchPatientFullFile(res.data.patient.patientId)
-      setActiveView('patient')
-      setShowLoginModal(false)
       setOtpSent(false)
       setEnteredOtp('')
       setOtpIdentifier('')
@@ -314,12 +330,11 @@ function App() {
   }
 
   const handleRoleSelectLogin = (role, data) => {
-    setCurrentUser({ role, data })
-    setActiveView(role)
-    setShowLoginModal(false)
+    persistLogin(role, data)
   }
 
   const handleLogout = () => {
+    localStorage.removeItem('chikitsya_session')
     setCurrentUser(null)
     setActiveView('home')
     setLoginError('')
