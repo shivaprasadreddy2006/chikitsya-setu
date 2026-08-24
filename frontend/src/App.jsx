@@ -883,7 +883,7 @@ function App() {
           </div>
         )}
 
-        {/* 2. COMPLETE PATIENT EHR PORTAL */}
+        {/* 2. COMPLETE PATIENT EHR PORTAL (WITH PHOTO PROOFS) */}
         {activeView === 'patient' && currentUser?.role === 'patient' && (
           <div style={{ width: '100%', maxWidth: '860px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             
@@ -1131,6 +1131,13 @@ function App() {
                             </div>
                           </div>
                         )}
+
+                        {lab.photoProof && (
+                          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <img src={lab.photoProof} alt="Lab Proof" style={{ height: '50px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                            <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 'bold' }}>✓ Click card to open full-size photo audit</span>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1194,6 +1201,12 @@ function App() {
                             🕒 Dispensed Timestamp: {formatDateTime(rx.dispensedAt)} (Click to view medicine packet photo proof)
                           </div>
                         )}
+                        {rx.photoProof && (
+                          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <img src={rx.photoProof} alt="Rx Handover Proof" style={{ height: '50px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                            <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 'bold' }}>✓ Click card to open full-size photo audit</span>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1239,7 +1252,7 @@ function App() {
                     <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#475569' }}>
                       {patientFullFile.admission.resourcesAllocated?.map((res, i) => (
                         <li key={i} style={{ marginBottom: '6px' }}>
-                          <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by {res.loggedByStaff} • 🕒 {formatDateTime(res.loggedAt)} {res.photoProof && '📸 [Photo Proof]'}
+                          <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by {res.loggedByStaff} • 🕒 {formatDateTime(res.loggedAt)} {res.photoProof && '📸 [Photo Proof Attached]'}
                         </li>
                       ))}
                     </ul>
@@ -1440,13 +1453,13 @@ function App() {
                     <button onClick={() => { setActivePatientForExam(null); setInspectedPatientFullFile(null); }} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '18px' }}>✕</button>
                   </div>
 
-                  {/* Complete Live Journey Timeline of Clicked Patient (Clickable for Details) */}
+                  {/* Complete Live Journey Timeline of Clicked Patient (Clickable for Details & Photo Proofs) */}
                   <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px', maxHeight: '220px', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <strong style={{ fontSize: '13px', color: '#0f172a' }}>
                         🕒 Complete Journey & Previous History:
                       </strong>
-                      <span style={{ fontSize: '11px', color: '#2563eb' }}>Click event for full details</span>
+                      <span style={{ fontSize: '11px', color: '#2563eb' }}>Click event for full details & photo proof</span>
                     </div>
 
                     {inspectedPatientFullFile?.timeline?.length === 0 ? (
@@ -1457,14 +1470,21 @@ function App() {
                           <div 
                             key={idx} 
                             onClick={() => setSelectedDetailItem(evt)}
-                            style={{ display: 'flex', gap: '8px', fontSize: '12px', padding: '6px', borderRadius: '6px', backgroundColor: 'white', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
-                            <span>{evt.icon}</span>
-                            <div style={{ flex: 1 }}>
-                              <strong>{evt.stage}</strong> - {evt.details}
-                              <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px' }}>
-                                By: <strong>{evt.performedBy || evt.doctorName}</strong> • {formatDateTime(evt.timestamp)} {evt.photoProof && '📸 [Photo]'}
+                            style={{ display: 'flex', gap: '8px', fontSize: '12px', padding: '8px', borderRadius: '6px', backgroundColor: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <span>{evt.icon}</span>
+                              <div>
+                                <strong>{evt.stage}</strong> - {evt.details}
+                                <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px' }}>
+                                  By: <strong>{evt.performedBy || evt.doctorName}</strong> • {formatDateTime(evt.timestamp)}
+                                </div>
                               </div>
                             </div>
+                            {evt.photoProof && (
+                              <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', flexShrink: 0 }}>
+                                📸 Photo Attached
+                              </span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1659,18 +1679,35 @@ function App() {
                   )}
 
                   {order.status === 'REPORT_READY' && (
-                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#166534', backgroundColor: 'white', padding: '12px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#166534', backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: order.photoProof ? '10px' : '0' }}>
                         <div>
                           <strong>Published Finding:</strong> {order.findings}
                           <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Published: {formatDateTime(order.updatedAt)}</div>
                         </div>
                         {order.photoProof && (
-                          <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold' }}>
-                            📸 Live Photo Verified
-                          </span>
+                          <button 
+                            onClick={() => setSelectedDetailItem({
+                              type: 'LAB_REPORT',
+                              stage: `Lab Report & Film: ${order.testName}`,
+                              performedBy: 'Pathology Lab In-Charge',
+                              timestamp: order.updatedAt,
+                              clinicalFindings: order.findings,
+                              photoProof: order.photoProof
+                            })}
+                            style={{ padding: '6px 12px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
+                            👁️ View Photo Proof
+                          </button>
                         )}
                       </div>
+
+                      {/* Photo Thumbnail in Lab View */}
+                      {order.photoProof && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={order.photoProof} alt="Lab Proof Thumbnail" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1', cursor: 'pointer' }} onClick={() => setSelectedDetailItem({ type: 'LAB_REPORT', stage: order.testName, photoProof: order.photoProof, clinicalFindings: order.findings, timestamp: order.updatedAt })} />
+                          <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 'bold' }}>✓ Diagnostic Proof Stored in Permanent EHR Ledger</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1727,12 +1764,33 @@ function App() {
                       </button>
                     </div>
                   ) : (
-                    <div style={{ fontSize: '12px', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '10px 14px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
-                      <span>✅ Dispensed on: {formatDateTime(rx.dispensedAt || rx.updatedAt)}</span>
-                      {rx.photoProof && (
-                        <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold' }}>
-                          📸 Handover Proof Verified
+                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: rx.photoProof ? '10px' : '0' }}>
+                        <span style={{ fontSize: '13px', color: '#15803d', fontWeight: 'bold' }}>
+                          ✅ Dispensed on: {formatDateTime(rx.dispensedAt || rx.updatedAt)} by {rx.dispensedByStaff || 'Duty Pharmacist'}
                         </span>
+                        {rx.photoProof && (
+                          <button 
+                            onClick={() => setSelectedDetailItem({
+                              type: 'PRESCRIPTION',
+                              stage: `Dispensed Medication Handover Proof`,
+                              performedBy: rx.dispensedByStaff || 'Duty Pharmacist (Counter #3)',
+                              timestamp: rx.dispensedAt || rx.updatedAt,
+                              medicines: rx.medicines,
+                              photoProof: rx.photoProof
+                            })}
+                            style={{ padding: '6px 12px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer' }}>
+                            👁️ View Handover Photo
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Photo Thumbnail in Pharmacy View */}
+                      {rx.photoProof && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={rx.photoProof} alt="Rx Proof Thumbnail" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1', cursor: 'pointer' }} onClick={() => setSelectedDetailItem({ type: 'PRESCRIPTION', stage: 'Medication Handover Proof', photoProof: rx.photoProof, medicines: rx.medicines, timestamp: rx.dispensedAt })} />
+                          <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 'bold' }}>✓ Handover Proof Stored in Permanent EHR Ledger</span>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1855,8 +1913,23 @@ function App() {
                       ) : (
                         <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13px', color: '#475569' }}>
                           {adm.resourcesAllocated?.map((res, i) => (
-                            <li key={i} style={{ marginBottom: '4px' }}>
-                              <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by <strong>{res.loggedByStaff}</strong> • 🕒 <span style={{ color: '#2563eb' }}>{formatDateTime(res.loggedAt)}</span> {res.photoProof && '📸 [Photo Attached]'}
+                            <li key={i} style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by <strong>{res.loggedByStaff}</strong> • 🕒 <span style={{ color: '#2563eb' }}>{formatDateTime(res.loggedAt)}</span>
+                              </div>
+                              {res.photoProof && (
+                                <button 
+                                  onClick={() => setSelectedDetailItem({
+                                    type: 'RESOURCE_USAGE',
+                                    stage: `Bedside Consumable: ${res.itemName}`,
+                                    performedBy: res.loggedByStaff,
+                                    timestamp: res.loggedAt,
+                                    photoProof: res.photoProof
+                                  })}
+                                  style={{ padding: '3px 8px', backgroundColor: '#faf5ff', color: '#7e22ce', border: '1px solid #d8b4fe', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                  📸 View Bedside Proof
+                                </button>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -1991,7 +2064,7 @@ function App() {
           </div>
         )}
 
-        {/* 8. COMPREHENSIVE HOSPITAL ADMINISTRATION & EVERY DETAIL AUDIT TRAIL */}
+        {/* 8. COMPREHENSIVE HOSPITAL ADMINISTRATION & EVERY DETAIL AUDIT TRAIL (WITH PHOTO AUDIT) */}
         {activeView === 'admin' && currentUser?.role === 'admin' && (
           <div style={{ width: '100%', maxWidth: '1040px' }}>
             <div style={{ backgroundColor: 'white', padding: '28px 36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', marginBottom: '24px' }}>
@@ -2063,7 +2136,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Comprehensive Live Audit Log Table with Exact Date & Time */}
+              {/* Comprehensive Live Audit Log Table with Exact Date & Time and Click-to-View Photos */}
               <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 2fr 1.2fr 1.2fr', backgroundColor: '#f8fafc', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', fontSize: '12px', color: '#475569' }}>
                   <span>EVENT TYPE & PATIENT</span>
@@ -2094,11 +2167,20 @@ function App() {
                         </div>
 
                         <div style={{ color: '#334155', fontSize: '12px', lineHeight: '1.4' }}>
-                          {log.details}
+                          <div>{log.details}</div>
                           {log.photoProof && (
-                            <span style={{ display: 'inline-block', marginLeft: '6px', fontSize: '11px', color: '#166534', fontWeight: 'bold', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>
-                              📸 Proof Attached
-                            </span>
+                            <button
+                              onClick={() => setSelectedDetailItem({
+                                type: log.type,
+                                stage: log.title,
+                                performedBy: log.actor,
+                                timestamp: log.timestamp,
+                                details: log.details,
+                                photoProof: log.photoProof
+                              })}
+                              style={{ marginTop: '4px', padding: '3px 8px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <span>📸</span> Inspect Photo Proof
+                            </button>
                           )}
                         </div>
 
