@@ -24,7 +24,7 @@ exports.getWaitingPatients = async (req, res) => {
 
         // Filter active waiting queue
         const waitingQueue = allAssignedPatients.filter(p => 
-            ['WAITING_FOR_DOCTOR', 'IN_CONSULTATION'].includes(p.currentStatus)
+            ['WAITING_FOR_DOCTOR', 'IN_CONSULTATION', 'DIAGNOSTICS_ORDERED', 'IN_LAB', 'LAB_COMPLETED', 'PHARMACY_QUEUE'].includes(p.currentStatus)
         );
 
         // Date-wise grouping
@@ -39,7 +39,7 @@ exports.getWaitingPatients = async (req, res) => {
                 dateStats[dateKey] = { date: dateKey, total: 0, waiting: 0, completed: 0, patients: [] };
             }
             dateStats[dateKey].total += 1;
-            if (['WAITING_FOR_DOCTOR', 'IN_CONSULTATION'].includes(p.currentStatus)) {
+            if (['WAITING_FOR_DOCTOR', 'IN_CONSULTATION', 'DIAGNOSTICS_ORDERED', 'IN_LAB', 'LAB_COMPLETED', 'PHARMACY_QUEUE'].includes(p.currentStatus)) {
                 dateStats[dateKey].waiting += 1;
             } else {
                 dateStats[dateKey].completed += 1;
@@ -111,17 +111,29 @@ exports.orderLabTest = async (req, res) => {
     }
 };
 
-// 4. Doctor completes consultation
+// 4. Doctor completes consultation & Authorizes Discharge with Clinical Summary
 exports.completeConsultation = async (req, res) => {
     try {
-        const { doctorId, patientId } = req.body;
+        const { doctorId, patientId, dischargeSummary, dischargeType, followUpAdvice } = req.body;
 
         const doc = await Doctor.findOne({ doctorId });
-        const docName = doc ? doc.name : 'Physician';
+        const docName = doc ? doc.name : 'Attending Physician';
+        const docDept = doc ? doc.department : 'General Medicine';
+
+        const summaryText = dischargeSummary || 'Patient examined. Vitals normal. Prescribed home recovery medications.';
+        const typeText = dischargeType || 'Routine Outpatient Completion (Home Recovery)';
+        const followUpText = followUpAdvice || 'Follow-up after 5-7 days if symptoms persist.';
 
         const updatedPatient = await Patient.findOneAndUpdate(
             { patientId },
-            { currentStatus: 'COMPLETED' },
+            { 
+                currentStatus: 'COMPLETED',
+                dischargeSummary: summaryText,
+                dischargeType: typeText,
+                followUpAdvice: followUpText,
+                dischargedByDoctorName: `${docName} (${docDept})`,
+                dischargedAt: new Date()
+            },
             { new: true }
         );
 
@@ -131,7 +143,7 @@ exports.completeConsultation = async (req, res) => {
         );
 
         res.status(200).json({
-            message: `Consultation completed by ${docName} and outpatient file closed.`,
+            message: `Discharge Authorized: ${updatedPatient.name} successfully discharged by ${docName} (${docDept})!`,
             patient: updatedPatient
         });
     } catch (error) {

@@ -48,8 +48,12 @@ const patientSchema = new mongoose.Schema({
             'OP_REGISTERED', 
             'WAITING_FOR_DOCTOR', 
             'IN_CONSULTATION',
+            'DIAGNOSTICS_ORDERED',
             'IN_LAB', 
+            'LAB_COMPLETED',
+            'PHARMACY_QUEUE',
             'ADMITTED',
+            'COMPLETED',
             'DISCHARGED'
         ]
     },
@@ -57,7 +61,14 @@ const patientSchema = new mongoose.Schema({
     // Links patient to their assigned doctor
     assignedDoctorId: {
         type: String
-    }
+    },
+
+    // Clinical Discharge Summary from Doctor
+    dischargeSummary: { type: String },
+    dischargeType: { type: String },
+    followUpAdvice: { type: String },
+    dischargedByDoctorName: { type: String },
+    dischargedAt: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Patient', patientSchema);

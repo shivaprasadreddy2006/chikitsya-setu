@@ -277,6 +277,28 @@ exports.getPatientFullFile = async (req, res) => {
             }
         }
 
+        // Milestone 6: Outpatient Consultation Completed & Discharge Authorized
+        if (patient.currentStatus === 'COMPLETED' || patient.dischargedAt) {
+            timeline.push({
+                id: 'op-discharge-01',
+                type: 'DISCHARGE',
+                stage: 'Outpatient Consultation Completed & Discharge Authorized',
+                timestamp: patient.dischargedAt || patient.updatedAt,
+                details: `Discharged by ${patient.dischargedByDoctorName || doctor.name}. Clinical Summary: "${patient.dischargeSummary || 'Patient examined. Vitals normal. Home recovery advised.'}" • Classification: ${patient.dischargeType || 'Routine Outpatient Completion'} • Follow-up Advice: "${patient.followUpAdvice || 'Follow-up as needed.'}"`,
+                performedBy: patient.dischargedByDoctorName || `${doctor.name} (${doctor.department})`,
+                doctorName: doctor.name,
+                doctorDepartment: doctor.department,
+                dischargeSummary: patient.dischargeSummary || 'Patient examined. Vitals normal. Prescribed home recovery medications.',
+                dischargeType: patient.dischargeType || 'Routine Outpatient Completion',
+                followUpAdvice: patient.followUpAdvice || 'Follow-up in 5-7 days if symptoms persist.',
+                status: 'COMPLETED',
+                badgeBg: '#dcfce7',
+                badgeColor: '#15803d',
+                icon: '🏁',
+                rawData: patient
+            });
+        }
+
         // Sort chronologically (earliest to latest)
         timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
@@ -348,6 +370,19 @@ exports.getHospitalAuditTrail = async (req, res) => {
                 status: p.currentStatus,
                 color: '#16a34a'
             });
+
+            if (p.currentStatus === 'COMPLETED' || p.dischargedAt) {
+                allLogs.push({
+                    type: 'DISCHARGE',
+                    title: `Outpatient Discharged: ${p.name} (${p.patientId})`,
+                    timestamp: p.dischargedAt || p.updatedAt,
+                    details: `Discharged by: ${p.dischargedByDoctorName || 'Attending Physician'} | Type: ${p.dischargeType || 'Routine Completion'} | Advice: "${p.dischargeSummary || 'Home recovery advised.'}"`,
+                    actor: p.dischargedByDoctorName || 'Doctor',
+                    patientId: p.patientId,
+                    status: 'COMPLETED',
+                    color: '#15803d'
+                });
+            }
         });
 
         // Referrals with Doctor and Room
@@ -450,7 +485,7 @@ exports.getHospitalAuditTrail = async (req, res) => {
             if (adm.status === 'DISCHARGED' || adm.dischargedAt) {
                 allLogs.push({
                     type: 'DISCHARGE',
-                    title: `Patient Discharged from Ward`,
+                    title: `Inpatient Discharged from Ward`,
                     timestamp: adm.dischargedAt || adm.updatedAt,
                     details: `Patient: ${adm.patientId} | Summary: "${adm.dischargeSummary || 'Stable'}"`,
                     actor: 'Ward Sister',
@@ -473,11 +508,12 @@ exports.getHospitalAuditTrail = async (req, res) => {
                 year: 'numeric'
             });
             if (!dateBreakdown[dateStr]) {
-                dateBreakdown[dateStr] = { date: dateStr, count: 0, registrations: 0, referrals: 0, labs: 0, prescriptions: 0, admissions: 0 };
+                dateBreakdown[dateStr] = { date: dateStr, count: 0, registrations: 0, referrals: 0, labs: 0, prescriptions: 0, admissions: 0, discharges: 0 };
             }
             dateBreakdown[dateStr].count += 1;
             if (log.type === 'REGISTRATION') dateBreakdown[dateStr].registrations += 1;
             if (log.type === 'REFERRAL') dateBreakdown[dateStr].referrals += 1;
+            if (log.type === 'DISCHARGE') dateBreakdown[dateStr].discharges += 1;
             if (log.type.startsWith('LAB')) dateBreakdown[dateStr].labs += 1;
             if (log.type.startsWith('PRESCRIPTION') || log.type.startsWith('PHARMACY')) dateBreakdown[dateStr].prescriptions += 1;
             if (log.type.startsWith('ADMISSION') || log.type.startsWith('RESOURCE')) dateBreakdown[dateStr].admissions += 1;

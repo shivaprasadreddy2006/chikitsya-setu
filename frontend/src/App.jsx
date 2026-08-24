@@ -79,7 +79,7 @@ function App() {
   const [selectedDateFilter, setSelectedDateFilter] = useState('ALL')
   const [activePatientForExam, setActivePatientForExam] = useState(null)
   const [inspectedPatientFullFile, setInspectedPatientFullFile] = useState(null)
-  const [doctorActionTab, setDoctorActionTab] = useState('lab') // 'lab' | 'rx' | 'referral' | 'admit'
+  const [doctorActionTab, setDoctorActionTab] = useState('lab') // 'lab' | 'rx' | 'referral' | 'admit' | 'discharge'
   const [selectedTest, setSelectedTest] = useState('Complete Blood Count (CBC)')
   const [selectedLabRoom, setSelectedLabRoom] = useState('Pathology Lab 1 (Room 105)')
   const [labDeliveryMode, setLabDeliveryMode] = useState('DIGITAL_EHR') // 'DIGITAL_EHR' | 'PHYSICAL_COUNTER'
@@ -89,6 +89,9 @@ function App() {
   const [admitWard, setAdmitWard] = useState('General Ward (Male)')
   const [admitBed, setAdmitBed] = useState('BED-GW-14')
   const [clinicalNotes, setClinicalNotes] = useState('')
+  const [dischargeSummaryText, setDischargeSummaryText] = useState('Patient examined. Vitals normal. Prescribed oral medications for 5 days. Home rest and fluids advised.')
+  const [dischargeTypeSelect, setDischargeTypeSelect] = useState('Routine Outpatient Completion (Home Recovery)')
+  const [followUpAdviceText, setFollowUpAdviceText] = useState('Follow-up after 5-7 days in OPD Room 102 if symptoms persist.')
   const [doctorMessage, setDoctorMessage] = useState('')
 
   // ---------- LAB STATE ----------
@@ -420,16 +423,22 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
-  const handleDoctorComplete = async () => {
+  // DEDICATED DISCHARGE / COMPLETE OUTPATIENT ACTION
+  const handleDoctorDischargeSubmit = async (e) => {
+    e.preventDefault()
     if (!activePatientForExam) return
     try {
       const res = await axios.post(`${API_BASE}/doctors/complete`, {
         doctorId: selectedDoctorId,
-        patientId: activePatientForExam.patientId
+        patientId: activePatientForExam.patientId,
+        dischargeSummary: dischargeSummaryText,
+        dischargeType: dischargeTypeSelect,
+        followUpAdvice: followUpAdviceText
       })
       setDoctorMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchDoctorQueue(selectedDoctorId)
       inspectPatientTimeline(activePatientForExam)
+      fetchHospitalStats()
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
@@ -732,6 +741,37 @@ function App() {
             {patientTab === 'overview' && (
               <div>
                 
+                {/* Official Discharge Certificate Banner (If Completed/Discharged) */}
+                {(patientFullFile?.patient?.currentStatus === 'COMPLETED' || patientFullFile?.patient?.dischargeSummary) && (
+                  <div style={{ backgroundColor: '#f0fdf4', border: '2px solid #22c55e', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '24px' }}>🏁</span>
+                        <div>
+                          <strong style={{ color: '#15803d', fontSize: '16px' }}>
+                            Outpatient Consultation Completed & Discharge Authorized
+                          </strong>
+                          <div style={{ fontSize: '12px', color: '#166534' }}>
+                            Discharged by: <strong>{patientFullFile?.patient?.dischargedByDoctorName || activeDoctorName}</strong> • {formatDateTime(patientFullFile?.patient?.dischargedAt || new Date())}
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{ padding: '4px 10px', backgroundColor: '#dcfce7', color: '#15803d', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>
+                        {patientFullFile?.patient?.dischargeType || 'Routine Outpatient Completion'}
+                      </span>
+                    </div>
+
+                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #bbf7d0', marginTop: '10px' }}>
+                      <div style={{ fontSize: '13px', color: '#0f172a', marginBottom: '6px' }}>
+                        <strong>Doctor Clinical Summary:</strong> {patientFullFile?.patient?.dischargeSummary || 'Patient examined. Vitals normal. Prescribed medications advised.'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#2563eb' }}>
+                        <strong>📅 Follow-up Instructions:</strong> {patientFullFile?.patient?.followUpAdvice || 'Follow-up after 5-7 days if symptoms persist.'}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Active Specialist Referral Banner (If Referred) */}
                 {latestReferral && (
                   <div style={{ backgroundColor: '#fef2f2', border: '2px dashed #ef4444', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
@@ -1230,6 +1270,7 @@ function App() {
                     <button onClick={() => setDoctorActionTab('rx')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'rx' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'rx' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>💊 Prescribe</button>
                     <button onClick={() => setDoctorActionTab('referral')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'referral' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'referral' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>🔄 Transfer/Refer</button>
                     <button onClick={() => setDoctorActionTab('admit')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'admit' ? '#0f172a' : '#f1f5f9', color: doctorActionTab === 'admit' ? 'white' : '#475569', cursor: 'pointer', fontWeight: '600' }}>🛏️ Admit Bed</button>
+                    <button onClick={() => setDoctorActionTab('discharge')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'discharge' ? '#16a34a' : '#dcfce7', color: doctorActionTab === 'discharge' ? 'white' : '#15803d', cursor: 'pointer', fontWeight: 'bold' }}>🏁 Discharge / Complete</button>
                   </div>
 
                   {/* ACTION 1: ORDER LAB WITH DELIVERY MODE NOTICE */}
@@ -1307,10 +1348,29 @@ function App() {
                     </form>
                   )}
 
-                  {/* Complete Consultation Button */}
-                  <button onClick={handleDoctorComplete} style={{ width: '100%', marginTop: '12px', padding: '10px', backgroundColor: '#f1f5f9', color: '#334155', border: '1px solid #cbd5e1', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-                    ✅ Mark Checkup Complete & Discharge Outpatient
-                  </button>
+                  {/* ACTION 5: DEDICATED DISCHARGE / COMPLETE OUTPATIENT ACTION */}
+                  {doctorActionTab === 'discharge' && (
+                    <form onSubmit={handleDoctorDischargeSubmit}>
+                      <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Discharge Classification:</label>
+                      <select style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px' }} value={dischargeTypeSelect} onChange={e => setDischargeTypeSelect(e.target.value)}>
+                        <option value="Routine Outpatient Completion (Home Recovery)">Routine Outpatient Completion (Home Recovery)</option>
+                        <option value="Home Recovery with Prescribed Medications">Home Recovery with Prescribed Medications</option>
+                        <option value="Discharged after Diagnostic Review">Discharged after Diagnostic Review</option>
+                        <option value="Referred for Home Rest & Quarantine">Referred for Home Rest & Quarantine</option>
+                        <option value="Transferred to Local Primary Health Centre (PHC)">Transferred to Local Primary Health Centre (PHC)</option>
+                      </select>
+
+                      <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Doctor Discharge Advice & Clinical Summary:</label>
+                      <textarea rows={3} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px', boxSizing: 'border-box', fontFamily: 'inherit' }} value={dischargeSummaryText} onChange={e => setDischargeSummaryText(e.target.value)} />
+
+                      <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Follow-up Advice / Return to OPD:</label>
+                      <input type="text" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '16px', boxSizing: 'border-box' }} value={followUpAdviceText} onChange={e => setFollowUpAdviceText(e.target.value)} />
+
+                      <button type="submit" style={{ width: '100%', padding: '14px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)' }}>
+                        🏁 Authorize Discharge & Complete Consultation (Signed by {currentUser.data.name}) ➔
+                      </button>
+                    </form>
+                  )}
 
                 </div>
               )}
@@ -1615,7 +1675,7 @@ function App() {
                 />
 
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  {['ALL', 'REGISTRATION', 'REFERRAL', 'LAB', 'PRESCRIPTION', 'ADMISSION'].map(type => (
+                  {['ALL', 'REGISTRATION', 'REFERRAL', 'DISCHARGE', 'LAB', 'PRESCRIPTION', 'ADMISSION'].map(type => (
                     <button
                       key={type}
                       onClick={() => setAuditFilterType(type)}
@@ -1712,6 +1772,22 @@ function App() {
                 <strong style={{ fontSize: '13px', color: '#2563eb' }}>👨‍⚕️ {selectedDetailItem.performedBy || selectedDetailItem.doctorName || 'Attending Physician'}</strong>
               </div>
             </div>
+
+            {/* Discharge Summary in Detail Modal */}
+            {selectedDetailItem.dischargeSummary && (
+              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '16px', marginBottom: '18px' }}>
+                <strong style={{ fontSize: '14px', color: '#15803d', display: 'block', marginBottom: '8px' }}>🏁 Outpatient Clinical Discharge Summary:</strong>
+                <div style={{ padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #dcfce7', fontSize: '14px', color: '#0f172a', lineHeight: '1.5' }}>
+                  {selectedDetailItem.dischargeSummary}
+                </div>
+                <div style={{ fontSize: '12px', color: '#166534', marginTop: '8px' }}>
+                  <strong>Classification:</strong> {selectedDetailItem.dischargeType || 'Routine Outpatient Completion'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#2563eb', marginTop: '4px' }}>
+                  <strong>Follow-up Advice:</strong> {selectedDetailItem.followUpAdvice || 'Follow-up as needed.'}
+                </div>
+              </div>
+            )}
 
             {/* Delivery Mode & Anti-Bribery Verification Notice */}
             {selectedDetailItem.deliveryMode && (
