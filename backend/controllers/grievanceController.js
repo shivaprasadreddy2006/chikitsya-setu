@@ -29,7 +29,8 @@ exports.createGrievance = async (req, res) => {
       description,
       mediaType: mediaType || 'none',
       mediaUrl: mediaUrl || '',
-      status: 'SUBMITTED' // Red Light
+      status: 'SUBMITTED', // Red Light
+      patientConfirmedResolved: false
     })
 
     await newGrievance.save()
@@ -69,7 +70,7 @@ exports.getAllGrievances = async (req, res) => {
   }
 }
 
-// 4. Admin Updates Grievance Status & Replies Back to Patient
+// 4. Admin Updates Grievance Status & Replies Back to Patient (Interim Action / Investigation)
 exports.respondToGrievance = async (req, res) => {
   try {
     const { grievanceId } = req.params
@@ -80,7 +81,7 @@ exports.respondToGrievance = async (req, res) => {
       return res.status(404).json({ message: 'Grievance not found.' })
     }
 
-    if (status) grievance.status = status // 'UNDER_REVIEW' (Orange) or 'RESOLVED' (Green)
+    if (status) grievance.status = status
     if (adminReply) {
       grievance.adminReply = adminReply
       grievance.adminRepliedAt = new Date()
@@ -89,17 +90,61 @@ exports.respondToGrievance = async (req, res) => {
 
     await grievance.save()
 
-    const statusEmoji = grievance.status === 'RESOLVED' ? '🟢 RESOLVED' : '🟠 UNDER INVESTIGATION'
+    const statusEmoji = grievance.status === 'RESOLVED' ? '🟢 RESOLVED (Admin Action Taken)' : '🟠 UNDER INVESTIGATION / ACTION INITIATED'
 
     res.status(200).json({
-      message: `Grievance updated to ${grievance.status}. Patient notified.`,
+      message: `Grievance updated. Patient received response.`,
       grievance,
       whatsAppNotification: {
         recipient: grievance.phoneNumber,
-        message: `🚨 *Gandhi Hospital Vigilance Update*\nHello *${grievance.patientName}*,\nYour complaint [ID: *${grievance.grievanceId}*] status updated:\n\n${statusEmoji}\n\n💬 *Official Admin Response:* "${grievance.adminReply || 'Action initiated by Medical Superintendent.'}"\n\n🕒 *Updated:* ${new Date().toLocaleTimeString('en-IN')}`
+        message: `🚨 *Gandhi Hospital Vigilance Update*\nHello *${grievance.patientName}*,\nYour complaint [ID: *${grievance.grievanceId}*] update:\n\n${statusEmoji}\n\n💬 *Official Admin Response:* "${grievance.adminReply || 'Action initiated by Medical Superintendent.'}"\n\n👉 *Please open the app to confirm if your issue was resolved satisfactorily!*`
       }
     })
   } catch (error) {
     res.status(500).json({ message: 'Server error responding to grievance', error: error.message })
+  }
+}
+
+// 5. Patient Confirms Physical Resolution (Patient's Explicit Permission to Turn Green 🟢 or Stay Orange 🟠)
+exports.confirmPatientResolution = async (req, res) => {
+  try {
+    const { grievanceId } = req.params
+    const { isResolved, feedback, reopenReason } = req.body
+
+    const grievance = await Grievance.findOne({ grievanceId })
+    if (!grievance) {
+      return res.status(404).json({ message: 'Grievance not found.' })
+    }
+
+    if (isResolved) {
+      // Patient permits status to become GREEN
+      grievance.status = 'RESOLVED'
+      grievance.patientConfirmedResolved = true
+      grievance.patientResolvedAt = new Date()
+      grievance.patientFeedback = feedback || 'Verified & confirmed resolved by patient.'
+      grievance.reopenReason = ''
+    } else {
+      // Patient says problem is STILL NOT FIXED -> Stays Orange and escalates
+      grievance.status = 'UNDER_REVIEW'
+      grievance.patientConfirmedResolved = false
+      grievance.reopenReason = reopenReason || 'Patient indicated that issue remains unresolved on the ground.'
+    }
+
+    await grievance.save()
+
+    res.status(200).json({
+      message: isResolved 
+        ? 'Resolution confirmed by patient. Status officially turned GREEN 🟢.' 
+        : 'Complaint escalated back to Vigilance. Status remains in ORANGE 🟠.',
+      grievance,
+      whatsAppNotification: {
+        recipient: grievance.phoneNumber,
+        message: isResolved
+          ? `✅ *Gandhi Hospital Resolution Confirmed*\nThank you *${grievance.patientName}*!\nYou confirmed resolution for [ID: *${grievance.grievanceId}*]. Complaint closed with GREEN 🟢 status.`
+          : `⚠️ *Gandhi Hospital Vigilance Escalation*\nComplaint [ID: *${grievance.grievanceId}*] has been re-escalated to higher superintendent authority as unresolved.`
+      }
+    })
+  } catch (error) {
+    res.status(500).json({ message: 'Server error confirming resolution', error: error.message })
   }
 }

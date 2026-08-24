@@ -491,6 +491,24 @@ function App() {
     }
   }
 
+  // Patient Confirms Resolution (Explicit Permission to Convert to Green 🟢 or Keep in Orange 🟠)
+  const handlePatientConfirmResolution = async (grievanceId, isResolved) => {
+    try {
+      const res = await axios.put(`${API_BASE}/grievances/patient-confirm/${grievanceId}`, {
+        isResolved,
+        feedback: isResolved ? 'Satisfied with action taken by Medical Superintendent.' : 'Issue still pending.',
+        reopenReason: isResolved ? '' : 'Patient reported problem is still not resolved on the ground.'
+      })
+      if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
+      if (currentUser?.data?.patientId) {
+        fetchPatientGrievances(currentUser.data.patientId)
+      }
+      fetchAllHospitalGrievances()
+    } catch (err) {
+      console.error('Error confirming resolution:', err)
+    }
+  }
+
   const fetchPatientGrievances = async (patId) => {
     try {
       const res = await axios.get(`${API_BASE}/grievances/patient/${patId}`)
@@ -1685,12 +1703,12 @@ function App() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       {patientGrievances.map((grv) => {
                         // Traffic Light Resolution:
-                        // SUBMITTED: RED 🔴
-                        // UNDER_REVIEW: ORANGE 🟠
-                        // RESOLVED: GREEN 🟢
+                        // SUBMITTED: RED 🔴 (Awaiting Admin Review)
+                        // UNDER_REVIEW: ORANGE 🟠 (Admin Responded / Under Investigation, Awaiting Patient Resolution Confirmation)
+                        // RESOLVED: GREEN 🟢 (Explicitly Confirmed & Approved by Patient)
                         const isRed = grv.status === 'SUBMITTED'
-                        const isOrange = grv.status === 'UNDER_REVIEW'
-                        const isGreen = grv.status === 'RESOLVED'
+                        const isGreen = grv.status === 'RESOLVED' && grv.patientConfirmedResolved
+                        const isOrange = !isRed && !isGreen
 
                         return (
                           <div 
@@ -1704,7 +1722,7 @@ function App() {
                             }}>
                             
                             {/* Card Header & Traffic Light Sign */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                               <div>
                                 <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>{grv.grievanceId} • {grv.department}</span>
                                 <h4 style={{ margin: '2px 0 0 0', color: '#0f172a', fontSize: '16px' }}>{grv.category}</h4>
@@ -1718,15 +1736,15 @@ function App() {
                                   {isRed && '🔴'}
                                 </span>
                                 <strong style={{ fontSize: '12px', color: isGreen ? '#15803d' : isOrange ? '#b45309' : '#b91c1c' }}>
-                                  {isGreen && 'RESOLVED & REPLIED'}
-                                  {isOrange && 'UNDER INVESTIGATION'}
-                                  {isRed && 'SUBMITTED (AWAITING REVIEW)'}
+                                  {isGreen && 'RESOLVED (APPROVED BY PATIENT)'}
+                                  {isOrange && (grv.adminReply ? 'ACTION PROPOSED (AWAITING YOUR CONFIRMATION)' : 'UNDER INVESTIGATION')}
+                                  {isRed && 'SUBMITTED (AWAITING ADMIN REVIEW)'}
                                 </strong>
                               </div>
                             </div>
 
                             <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#334155', lineHeight: '1.4' }}>
-                              <strong>Patient Description:</strong> "{grv.description}"
+                              <strong>Patient Statement:</strong> "{grv.description}"
                             </p>
 
                             {/* Attached Media */}
@@ -1740,23 +1758,57 @@ function App() {
                               </div>
                             )}
 
-                            {/* Official Admin Reply & Resolution Note */}
+                            {/* Official Admin Reply & Action Taken */}
                             {grv.adminReply ? (
-                              <div style={{ backgroundColor: '#ffffff', padding: '12px 16px', borderRadius: '8px', border: '1px solid #bbf7d0', marginTop: '10px' }}>
+                              <div style={{ backgroundColor: '#ffffff', padding: '14px 16px', borderRadius: '10px', border: '1px solid #bbf7d0', marginTop: '10px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                                   <strong style={{ fontSize: '13px', color: '#15803d' }}>
-                                    💬 Official Response from Hospital Superintendent:
+                                    💬 Response & Action Taken by Hospital Administration:
                                   </strong>
                                   <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold' }}>
                                     🕒 {formatDateTime(grv.adminRepliedAt)}
                                   </span>
                                 </div>
-                                <p style={{ margin: 0, fontSize: '13px', color: '#0f172a', lineHeight: '1.4' }}>
+                                <p style={{ margin: '2px 0 6px 0', fontSize: '13px', color: '#0f172a', lineHeight: '1.4' }}>
                                   "{grv.adminReply}"
                                 </p>
-                                <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
-                                  Action taken by: <strong>{grv.adminRepliedBy || 'Chief Medical Superintendent'}</strong>
+                                <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>
+                                  Authorizing Officer: <strong>{grv.adminRepliedBy || 'Chief Medical Superintendent'}</strong>
                                 </span>
+
+                                {/* PATIENT RESOLUTION VERIFICATION & PERMISSION PROTOCOL */}
+                                {!grv.patientConfirmedResolved ? (
+                                  <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', padding: '12px 14px', borderRadius: '8px', marginTop: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                                      <span style={{ fontSize: '16px' }}>🛡️</span>
+                                      <strong style={{ fontSize: '13px', color: '#9a3412' }}>
+                                        Patient Verification: Has your issue been solved on the ground?
+                                      </strong>
+                                    </div>
+                                    <p style={{ fontSize: '12px', color: '#7c2d12', margin: '0 0 10px 0', lineHeight: '1.4' }}>
+                                      The Hospital Administration has responded. <strong>To prevent fake or premature closures, only YOU have the authority to grant permission to convert this signal to GREEN 🟢.</strong>
+                                    </p>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                      <button 
+                                        onClick={() => handlePatientConfirmResolution(grv.grievanceId, true)}
+                                        style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 6px rgba(22,163,74,0.3)' }}>
+                                        <span>✅</span> Yes, Issue Fixed (Turn Signal Green 🟢)
+                                      </button>
+                                      <button 
+                                        onClick={() => handlePatientConfirmResolution(grv.grievanceId, false)}
+                                        style={{ padding: '8px 16px', backgroundColor: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>❌</span> No, Still Not Fixed (Stay in Orange 🟠 & Escalate)
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#f0fdf4', padding: '10px 14px', borderRadius: '8px', border: '1px solid #86efac', marginTop: '12px' }}>
+                                    <span style={{ fontSize: '16px' }}>🟢</span>
+                                    <strong style={{ fontSize: '12px', color: '#15803d' }}>
+                                      ✅ Resolution Verified & Approved by You ({currentUser.data.name}) on {formatDateTime(grv.patientResolvedAt)}
+                                    </strong>
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div style={{ fontSize: '12px', color: '#b91c1c', marginTop: '6px', fontStyle: 'italic' }}>
@@ -2778,8 +2830,8 @@ function App() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {allHospitalGrievances.map(grv => {
                       const isRed = grv.status === 'SUBMITTED'
-                      const isOrange = grv.status === 'UNDER_REVIEW'
-                      const isGreen = grv.status === 'RESOLVED'
+                      const isGreen = grv.status === 'RESOLVED' && grv.patientConfirmedResolved
+                      const isOrange = !isRed && !isGreen
 
                       return (
                         <div
@@ -2809,7 +2861,7 @@ function App() {
                               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: 'white', padding: '4px 12px', borderRadius: '20px', border: `1px solid ${isGreen ? '#86efac' : isOrange ? '#fde68a' : '#fca5a5'}` }}>
                                 <span>{isGreen ? '🟢' : isOrange ? '🟠' : '🔴'}</span>
                                 <strong style={{ fontSize: '11px', color: isGreen ? '#15803d' : isOrange ? '#b45309' : '#b91c1c' }}>
-                                  {isGreen ? 'RESOLVED' : isOrange ? 'UNDER INVESTIGATION' : 'NEW / UNREVIEWED'}
+                                  {isGreen ? 'RESOLVED (APPROVED BY PATIENT)' : isOrange ? (grv.adminReply ? 'ACTION TAKEN (AWAITING PATIENT CONFIRMATION)' : 'UNDER INVESTIGATION') : 'NEW / UNREVIEWED'}
                                 </strong>
                               </div>
 

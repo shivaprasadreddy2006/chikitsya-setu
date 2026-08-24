@@ -50,8 +50,8 @@ const grievanceSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['SUBMITTED', 'UNDER_REVIEW', 'RESOLVED'],
-    default: 'SUBMITTED' // Red: SUBMITTED, Orange: UNDER_REVIEW, Green: RESOLVED
+    enum: ['SUBMITTED', 'UNDER_REVIEW', 'ACTION_PROPOSED', 'RESOLVED'],
+    default: 'SUBMITTED' // Red: SUBMITTED, Orange: UNDER_REVIEW / ACTION_PROPOSED, Green: RESOLVED (Confirmed by Patient)
   },
   adminReply: {
     type: String,
@@ -61,6 +61,21 @@ const grievanceSchema = new mongoose.Schema({
     type: Date
   },
   adminRepliedBy: {
+    type: String,
+    default: ''
+  },
+  patientConfirmedResolved: {
+    type: Boolean,
+    default: false
+  },
+  patientResolvedAt: {
+    type: Date
+  },
+  patientFeedback: {
+    type: String,
+    default: ''
+  },
+  reopenReason: {
     type: String,
     default: ''
   }

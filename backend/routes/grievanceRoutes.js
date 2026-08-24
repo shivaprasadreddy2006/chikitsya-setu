@@ -14,4 +14,7 @@ router.get('/all', grievanceController.getAllGrievances)
 // Admin responds to grievance
 router.put('/respond/:grievanceId', grievanceController.respondToGrievance)
 
+// Patient confirms physical resolution (Turns status Green or keeps Orange)
+router.put('/patient-confirm/:grievanceId', grievanceController.confirmPatientResolution)
+
 module.exports = router
