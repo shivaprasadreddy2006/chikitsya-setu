@@ -5,6 +5,16 @@ const { sendRealFast2SMS } = require('../services/smsService');
 // Helper: Generate 6-digit random numeric string
 const generateRandomPin = () => Math.floor(100000 + Math.random() * 900000).toString();
 
+// 0. API: Get all patients for list / quick selection
+exports.getAllPatients = async (req, res) => {
+    try {
+        const patients = await Patient.find().sort({ createdAt: -1 });
+        res.status(200).json(patients);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
+
 // 1. API: Register Patient at O/P Desk & Send Credentials to Real Phone via Fast2SMS
 exports.registerPatient = async (req, res) => {
     try {
@@ -95,8 +105,8 @@ exports.loginPatient = async (req, res) => {
             return res.status(404).json({ message: "Patient ID not found. Please register at O/P counter." });
         }
 
-        if (patient.password !== password.trim()) {
-            return res.status(401).json({ message: "Incorrect passcode. Click 'Forgot Passcode' to receive an SMS OTP." });
+        if (patient.password.trim() !== password.trim()) {
+            return res.status(401).json({ message: `Incorrect passcode for ${patient.name}. Please check your ticket/WhatsApp message.` });
         }
 
         const doctor = await Doctor.findOne({ doctorId: patient.assignedDoctorId });

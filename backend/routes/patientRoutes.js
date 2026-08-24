@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { 
+    getAllPatients,
     registerPatient, 
     loginPatient, 
     sendOtp, 
     verifyOtpAndLogin 
 } = require('../controllers/patientController');
+
+// 0. List all patients (for quick testing / oversight)
+router.get('/', getAllPatients);
 
 // 1. O/P Desk: Register Patient
 router.post('/register', registerPatient);

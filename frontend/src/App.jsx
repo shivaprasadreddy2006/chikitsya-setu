@@ -9,7 +9,7 @@ function App() {
 
   // Login Modal
   const [showLoginModal, setShowLoginModal] = useState(false)
-  const [loginRole, setLoginRole] = useState('op-desk')
+  const [loginRole, setLoginRole] = useState('patient')
   const [currentUser, setCurrentUser] = useState(null)
 
   // ---------- STAFF / OP DESK LOGIN STATE ----------
@@ -18,6 +18,7 @@ function App() {
   const [staffLoginError, setStaffLoginError] = useState('')
 
   // ---------- PATIENT STATE ----------
+  const [registeredPatients, setRegisteredPatients] = useState([])
   const [patientLoginMode, setPatientLoginMode] = useState('password')
   const [loginId, setLoginId] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
@@ -79,6 +80,7 @@ function App() {
   useEffect(() => {
     fetchDoctors()
     fetchHospitalStats()
+    fetchPatientsList()
   }, [])
 
   useEffect(() => {
@@ -94,6 +96,13 @@ function App() {
     try {
       const res = await axios.get(`${API_BASE}/doctors`)
       setDoctorsList(res.data)
+    } catch (err) { console.error(err) }
+  }
+
+  const fetchPatientsList = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/patients`)
+      setRegisteredPatients(res.data)
     } catch (err) { console.error(err) }
   }
 
@@ -160,14 +169,21 @@ function App() {
     try {
       const res = await axios.post(`${API_BASE}/patients/login`, { patientId: loginId, password: loginPassword })
       setCurrentUser({ role: 'patient', data: res.data.patient })
-      fetchPatientFullFile(res.data.patient.patientId)
+      await fetchPatientFullFile(res.data.patient.patientId)
       setActiveView('patient')
       setShowLoginModal(false)
       setLoginId('')
       setLoginPassword('')
     } catch (err) {
-      setLoginError(err.response?.data?.message || 'Invalid credentials.')
+      setLoginError(err.response?.data?.message || 'Invalid credentials. Please verify your Patient ID and Passcode.')
     }
+  }
+
+  const handleDirectPatientSelect = async (patient) => {
+    setCurrentUser({ role: 'patient', data: patient })
+    await fetchPatientFullFile(patient.patientId)
+    setActiveView('patient')
+    setShowLoginModal(false)
   }
 
   const handleSendOtp = async (e) => {
@@ -189,7 +205,7 @@ function App() {
     try {
       const res = await axios.post(`${API_BASE}/patients/verify-otp`, { identifier: otpIdentifier, otp: enteredOtp })
       setCurrentUser({ role: 'patient', data: res.data.patient })
-      fetchPatientFullFile(res.data.patient.patientId)
+      await fetchPatientFullFile(res.data.patient.patientId)
       setActiveView('patient')
       setShowLoginModal(false)
       setOtpSent(false)
@@ -214,6 +230,7 @@ function App() {
     setStaffLoginError('')
     setOtpSent(false)
     setPatientFullFile(null)
+    fetchPatientsList()
   }
 
   // ---------- O/P REGISTRATION ----------
@@ -227,6 +244,7 @@ function App() {
       if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
       setOpForm({ name: '', age: '', gender: 'Male', phoneNumber: '' })
       fetchHospitalStats()
+      fetchPatientsList()
     } catch (err) {
       setOpError(err.response?.data?.message || 'Registration failed.')
     }
@@ -392,7 +410,7 @@ function App() {
           {currentUser ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div style={{ padding: '6px 14px', backgroundColor: '#f1f5f9', borderRadius: '20px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
-                {currentUser.role === 'patient' && `👤 Patient: ${currentUser.data.name}`}
+                {currentUser.role === 'patient' && `👤 Patient: ${currentUser.data.name} (${currentUser.data.patientId})`}
                 {currentUser.role === 'doctor' && `👨‍⚕️ ${currentUser.data.name}`}
                 {currentUser.role === 'lab' && `🔬 Lab Station`}
                 {currentUser.role === 'pharmacy' && `💊 Pharmacy Station`}
@@ -405,7 +423,7 @@ function App() {
               </button>
             </div>
           ) : (
-            <button onClick={() => setShowLoginModal(true)} style={{ padding: '10px 24px', backgroundColor: '#0f172a', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)' }}>
+            <button onClick={() => { fetchPatientsList(); setShowLoginModal(true); }} style={{ padding: '10px 24px', backgroundColor: '#0f172a', color: '#ffffff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)' }}>
               Login to Portals ➔
             </button>
           )}
@@ -415,7 +433,7 @@ function App() {
       {/* MAIN BODY CONTENT */}
       <main style={{ flex: 1, padding: '36px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
 
-        {/* 1. HOME LANDING VIEW (HOSPITAL INFORMATION & VISUAL PRESENTATION) */}
+        {/* 1. HOME LANDING VIEW */}
         {activeView === 'home' && (
           <div style={{ width: '100%', maxWidth: '1080px' }}>
             
@@ -573,7 +591,7 @@ function App() {
 
         {/* 2. COMPLETE PATIENT PORTAL */}
         {activeView === 'patient' && currentUser?.role === 'patient' && (
-          <div style={{ width: '100%', maxWidth: '820px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+          <div style={{ width: '100%', maxWidth: '840px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px' }}>
               <div>
                 <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '1px' }}>Electronic Health Record</span>
@@ -614,8 +632,8 @@ function App() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>Assigned Physician</div>
-                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', marginTop: '2px' }}>{currentUser.data.assignedDoctor?.name || 'Dr. Ramesh Sharma'}</div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>{currentUser.data.assignedDoctor?.department || 'General Medicine'}</div>
+                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', marginTop: '2px' }}>{patientFullFile?.doctor?.name || currentUser.data.assignedDoctor?.name || 'Dr. Ramesh Sharma'}</div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>{patientFullFile?.doctor?.department || currentUser.data.assignedDoctor?.department || 'General Medicine'}</div>
                   </div>
                   <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>Physical Location</div>
@@ -630,7 +648,7 @@ function App() {
               <div>
                 <h3 style={{ margin: '0 0 16px 0', color: '#0f172a' }}>Diagnostic Laboratory Reports</h3>
                 {patientFullFile?.labRequests?.length === 0 ? (
-                  <p style={{ color: '#64748b' }}>No lab tests ordered.</p>
+                  <p style={{ color: '#64748b' }}>No lab tests ordered yet.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {patientFullFile?.labRequests?.map(lab => (
@@ -658,7 +676,7 @@ function App() {
               <div>
                 <h3 style={{ margin: '0 0 16px 0', color: '#0f172a' }}>Prescribed Medications</h3>
                 {patientFullFile?.prescriptions?.length === 0 ? (
-                  <p style={{ color: '#64748b' }}>No active prescriptions.</p>
+                  <p style={{ color: '#64748b' }}>No active prescriptions yet.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {patientFullFile?.prescriptions?.map(rx => (
@@ -1089,7 +1107,7 @@ function App() {
       {/* UNIFIED ROLE LOGIN MODAL */}
       {showLoginModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
-          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '480px', borderRadius: '16px', padding: '32px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', position: 'relative' }}>
+          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '500px', borderRadius: '16px', padding: '32px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
             <button onClick={() => setShowLoginModal(false)} style={{ position: 'absolute', top: '18px', right: '18px', background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748b' }}>✕</button>
 
             <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', color: '#0f172a' }}>Login to Chikitsya Setu</h3>
@@ -1098,8 +1116,8 @@ function App() {
             {/* Role Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '20px' }}>
               {[
-                { key: 'op-desk', label: '🎫 O/P Staff' },
                 { key: 'patient', label: '👤 Patient' },
+                { key: 'op-desk', label: '🎫 O/P Staff' },
                 { key: 'doctor', label: '👨‍⚕️ Doctor' },
                 { key: 'lab', label: '🔬 Lab' },
                 { key: 'pharmacy', label: '💊 Pharmacy' },
@@ -1155,21 +1173,24 @@ function App() {
             {loginRole === 'patient' && (
               <div>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
-                  <button onClick={() => setPatientLoginMode('password')} style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: patientLoginMode === 'password' ? '#e2e8f0' : 'white', cursor: 'pointer' }}>Passcode</button>
-                  <button onClick={() => setPatientLoginMode('otp')} style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: patientLoginMode === 'otp' ? '#e2e8f0' : 'white', cursor: 'pointer' }}>WhatsApp OTP</button>
+                  <button onClick={() => setPatientLoginMode('password')} style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: patientLoginMode === 'password' ? '#0f172a' : '#f8fafc', color: patientLoginMode === 'password' ? 'white' : '#334155', cursor: 'pointer', fontWeight: '600' }}>Passcode Login</button>
+                  <button onClick={() => setPatientLoginMode('otp')} style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: patientLoginMode === 'otp' ? '#0f172a' : '#f8fafc', color: patientLoginMode === 'otp' ? 'white' : '#334155', cursor: 'pointer', fontWeight: '600' }}>WhatsApp OTP</button>
+                  <button onClick={() => setPatientLoginMode('quick')} style={{ flex: 1, padding: '6px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', backgroundColor: patientLoginMode === 'quick' ? '#0f172a' : '#f8fafc', color: patientLoginMode === 'quick' ? 'white' : '#334155', cursor: 'pointer', fontWeight: '600' }}>⚡ Quick Select</button>
                 </div>
 
-                {patientLoginMode === 'password' ? (
+                {patientLoginMode === 'password' && (
                   <form onSubmit={handlePatientPasswordLogin}>
-                    <input required type="text" placeholder="Patient ID (e.g. PT-1001)" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px', boxSizing: 'border-box' }} value={loginId} onChange={e => setLoginId(e.target.value)} />
-                    <input required type="password" placeholder="Passcode" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '16px', boxSizing: 'border-box' }} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
-                    <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Log In as Patient ➔</button>
+                    <input required type="text" placeholder="Patient ID (e.g. PT-1005)" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '12px', boxSizing: 'border-box' }} value={loginId} onChange={e => setLoginId(e.target.value)} />
+                    <input required type="password" placeholder="Passcode (6-digit PIN)" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '16px', boxSizing: 'border-box' }} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+                    <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>Log In to Patient EHR Portal ➔</button>
                   </form>
-                ) : (
+                )}
+
+                {patientLoginMode === 'otp' && (
                   <div>
                     {!otpSent ? (
                       <form onSubmit={handleSendOtp}>
-                        <input required type="text" placeholder="Patient ID or Mobile" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '14px', boxSizing: 'border-box' }} value={otpIdentifier} onChange={e => setOtpIdentifier(e.target.value)} />
+                        <input required type="text" placeholder="Patient ID or Mobile Number" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '14px', boxSizing: 'border-box' }} value={otpIdentifier} onChange={e => setOtpIdentifier(e.target.value)} />
                         <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#25D366', color: 'white', border: 'none', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>💬 Send OTP to WhatsApp</button>
                       </form>
                     ) : (
@@ -1180,8 +1201,30 @@ function App() {
                     )}
                   </div>
                 )}
-                {loginError && <p style={{ color: '#dc2626', fontSize: '13px', marginTop: '10px' }}>⚠️ {loginError}</p>}
-                {otpError && <p style={{ color: '#dc2626', fontSize: '13px', marginTop: '10px' }}>⚠️ {otpError}</p>}
+
+                {patientLoginMode === 'quick' && (
+                  <div>
+                    <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '8px' }}>Select any registered patient to test their live portal:</span>
+                    {registeredPatients.length === 0 ? (
+                      <p style={{ fontSize: '13px', color: '#94a3b8' }}>No registered patients found. Register at O/P counter first.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+                        {registeredPatients.map(p => (
+                          <button key={p.patientId} onClick={() => handleDirectPatientSelect(p)} style={{ padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', textAlign: 'left' }}>
+                            <div>
+                              <strong style={{ fontSize: '14px', color: '#0f172a' }}>{p.name}</strong>
+                              <div style={{ fontSize: '12px', color: '#64748b' }}>{p.patientId} • Passcode: {p.password}</div>
+                            </div>
+                            <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: 'bold' }}>Open Portal ➔</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {loginError && <p style={{ color: '#dc2626', fontSize: '13px', marginTop: '12px', padding: '8px', backgroundColor: '#fef2f2', borderRadius: '6px' }}>⚠️ {loginError}</p>}
+                {otpError && <p style={{ color: '#dc2626', fontSize: '13px', marginTop: '12px', padding: '8px', backgroundColor: '#fef2f2', borderRadius: '6px' }}>⚠️ {otpError}</p>}
               </div>
             )}
 
