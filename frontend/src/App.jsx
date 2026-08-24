@@ -328,11 +328,23 @@ function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'Segoe UI, Arial, sans-serif', margin: 0, backgroundColor: '#f8fafc' }}>
       
-      {/* WhatsApp Popup */}
+      {/* ----------------- REAL SMS NOTIFICATION BANNER ----------------- */}
       {whatsAppNotification && (
-        <div style={{ position: 'fixed', top: '20px', right: '20px', backgroundColor: '#25D366', color: 'white', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.25)', maxWidth: '380px', zIndex: 9999 }}>
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          backgroundColor: '#0f172a',
+          color: 'white',
+          padding: '16px 20px',
+          borderRadius: '12px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+          maxWidth: '380px',
+          zIndex: 9999,
+          border: '1px solid #3b82f6'
+        }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <strong style={{ fontSize: '15px' }}>💬 WhatsApp Delivered</strong>
+            <strong style={{ fontSize: '15px' }}>📱 Real SMS Dispatched</strong>
             <button onClick={() => setWhatsAppNotification(null)} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', fontSize: '16px' }}>✕</button>
           </div>
           <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '6px' }}>To: +91 {whatsAppNotification.recipient}</div>
