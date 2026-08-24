@@ -7,18 +7,28 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json()); // Allows us to receive JSON data
+app.use(express.json());
 
 // Routes
 const patientRoutes = require('./routes/patientRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
+const labRoutes = require('./routes/labRoutes');
+const pharmacyRoutes = require('./routes/pharmacyRoutes');
+const admissionRoutes = require('./routes/admissionRoutes');
+const referralRoutes = require('./routes/referralRoutes');
+const hospitalRoutes = require('./routes/hospitalRoutes');
 
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/labs', labRoutes);
+app.use('/api/pharmacy', pharmacyRoutes);
+app.use('/api/admissions', admissionRoutes);
+app.use('/api/referrals', referralRoutes);
+app.use('/api/hospital', hospitalRoutes);
 
-// Basic test route
+// Health check route
 app.get('/', (req, res) => {
-    res.send('Chikitsya Setu API is running!');
+    res.send('Chikitsya Setu Full Hospital API is operational!');
 });
 
 // MongoDB Connection

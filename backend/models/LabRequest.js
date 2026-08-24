@@ -5,17 +5,24 @@ const labRequestSchema = new mongoose.Schema({
     doctorId: { type: String, required: true },
     
     testName: { type: String, required: true },
-    labRoom: { type: String, required: true }, // e.g., 'Pathology Lab 1'
+    labRoom: { type: String, required: true },
+    notes: { type: String },
     
-    // Status tracker for the Lab
+    // Status tracker
     status: { 
         type: String, 
         default: 'PENDING',
-        enum: ['PENDING', 'SAMPLE_COLLECTED', 'REPORT_READY']
+        enum: ['PENDING', 'SAMPLE_COLLECTED', 'PROCESSING', 'REPORT_READY']
     },
     
-    // This will hold the PDF link once the lab uploads it
-    reportUrl: { type: String } 
+    // Results & report details
+    findings: { type: String },
+    reportUrl: { type: String }, // Digital report file/link
+    
+    // SLA and Accountability timestamps
+    sampleCollectedAt: { type: Date },
+    completedAt: { type: Date },
+    isDelayed: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('LabRequest', labRequestSchema);
