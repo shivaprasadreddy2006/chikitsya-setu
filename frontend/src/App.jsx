@@ -178,12 +178,10 @@ function App() {
   // ---------- LAB STATE & PHOTO PROOF ----------
   const [labOrders, setLabOrders] = useState([])
   const [labFindingsInput, setLabFindingsInput] = useState({})
-  const [labPhotoProofs, setLabPhotoProofs] = useState({}) // { [orderId]: base64 }
   const [labMessage, setLabMessage] = useState('')
 
   // ---------- PHARMACY STATE & PHOTO PROOF ----------
   const [prescriptions, setPrescriptions] = useState([])
-  const [pharmacyPhotoProofs, setPharmacyPhotoProofs] = useState({}) // { [rxId]: base64 }
   const [pharmacyMessage, setPharmacyMessage] = useState('')
 
   // ---------- INPATIENT WARD STATE & PHOTO PROOF ----------
@@ -204,12 +202,16 @@ function App() {
   const [opTicket, setOpTicket] = useState(null)
   const [opError, setOpError] = useState('')
 
-  // ---------- ADMIN / OVERSIGHT STATE ----------
+  // ---------- ADMIN / OVERSIGHT STATE (CLEAN 5 SECTIONS) ----------
   const [hospitalStats, setHospitalStats] = useState(null)
   const [hospitalAuditTrail, setHospitalAuditTrail] = useState(null)
-  const [adminActiveTab, setAdminActiveTab] = useState('ledger') // 'ledger' | 'photos' | 'doctors' | 'wards'
-  const [auditFilterType, setAuditFilterType] = useState('ALL')
-  const [auditSearchQuery, setAuditSearchQuery] = useState('')
+  // 'registered-patients' | 'doctors-duty' | 'labs' | 'photos' | 'discharged-patients'
+  const [adminActiveTab, setAdminActiveTab] = useState('registered-patients')
+  const [photoServiceFilter, setPhotoServiceFilter] = useState('ALL') // 'ALL' | 'pharmacy' | 'lab' | 'ward' | 'manual'
+  const [adminSearchQuery, setAdminSearchQuery] = useState('')
+  const [adminInspectedPatientFile, setAdminInspectedPatientFile] = useState(null)
+  const [adminInspectedPatientTab, setAdminInspectedPatientTab] = useState('overview')
+  const [adminSelectedDoctor, setAdminSelectedDoctor] = useState(null)
 
   // ---------- NOTIFICATION BANNER ----------
   const [whatsAppNotification, setWhatsAppNotification] = useState(null)
@@ -236,6 +238,9 @@ function App() {
       fetchHospitalStats()
       fetchHospitalAuditTrail()
       fetchDoctors()
+      fetchPatientsList()
+      fetchLabOrders()
+      fetchPrescriptions()
       fetchAdmissions()
     }
     if (activeView === 'patient' && currentUser?.role === 'patient' && currentUser.data?.patientId) {
@@ -383,6 +388,7 @@ function App() {
     try {
       const res = await axios.get(`${API_BASE}/hospital/patient-file/${patId}`)
       setPatientFullFile(res.data)
+      return res.data
     } catch (err) { console.error(err) }
   }
 
@@ -391,6 +397,15 @@ function App() {
     try {
       const res = await axios.get(`${API_BASE}/hospital/patient-file/${patient.patientId}`)
       setInspectedPatientFullFile(res.data)
+    } catch (err) { console.error(err) }
+  }
+
+  // Admin click on any patient (registered or discharged) to open their full complete UI file
+  const handleAdminInspectPatient = async (patId) => {
+    try {
+      const res = await axios.get(`${API_BASE}/hospital/patient-file/${patId}`)
+      setAdminInspectedPatientFile(res.data)
+      setAdminInspectedPatientTab('overview')
     } catch (err) { console.error(err) }
   }
 
@@ -485,6 +500,7 @@ function App() {
     setActivePatientForExam(null)
     setInspectedPatientFullFile(null)
     setSelectedDetailItem(null)
+    setAdminInspectedPatientFile(null)
     fetchPatientsList()
   }
 
@@ -553,7 +569,6 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
-  // REVIEWS & TRANSFERS TO SPECIALIST (LOAD-BALANCED BY SHORTEST QUEUE)
   const handleDoctorReferral = async (e) => {
     e.preventDefault()
     if (!activePatientForExam) return
@@ -591,7 +606,6 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
-  // DEDICATED DISCHARGE / COMPLETE OUTPATIENT ACTION (SYNCHRONIZED WITH WARDS)
   const handleDoctorDischargeSubmit = async (e) => {
     e.preventDefault()
     if (!activePatientForExam) return
@@ -676,7 +690,7 @@ function App() {
   const activeDoctorDept = resolvedDoctor?.department || latestReferral?.toDepartment || 'Orthopedics'
   const activeDoctorLocation = patientFullFile?.doctorLocation || DEPARTMENT_LOCATIONS[activeDoctorDept] || { room: 'Room 204', block: 'Trauma Wing (2nd Floor)' }
 
-  // Filter Doctor Patients based on view (waiting queue, all assigned, date-wise)
+  // Filter Doctor Patients based on view
   const displayedDoctorPatients = (() => {
     if (doctorViewFilter === 'waiting') return doctorQueueData.waitingQueue || []
     if (doctorViewFilter === 'date-wise' && selectedDateFilter !== 'ALL') {
@@ -686,23 +700,96 @@ function App() {
     return doctorQueueData.allAssignedPatients || []
   })()
 
-  // Filter Ward Patients (Active Admitted vs Discharged Archives)
+  // Filter Ward Patients
   const activeAdmittedList = admissionsList.filter(a => a.status === 'ADMITTED')
   const dischargedAdmittedList = admissionsList.filter(a => a.status === 'DISCHARGED')
   const displayedWardList = wardViewFilter === 'admitted' ? activeAdmittedList : dischargedAdmittedList
 
-  // All logs with attached photo proofs for Admin Photo Gallery
-  const allLogsWithPhotos = (hospitalAuditTrail?.allLogs || []).filter(l => Boolean(l.photoProof))
+  // Discharged Outpatients list (patients with COMPLETED status or discharge summary)
+  const dischargedPatientsList = registeredPatients.filter(p => p.currentStatus === 'COMPLETED' || p.dischargeSummary)
 
-  // Filter Admin Audit Trail
-  const filteredAuditLogs = (hospitalAuditTrail?.allLogs || []).filter(log => {
-    const matchesType = auditFilterType === 'ALL' || log.type.startsWith(auditFilterType)
-    const matchesSearch = !auditSearchQuery || 
-      log.title.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
-      log.details.toLowerCase().includes(auditSearchQuery.toLowerCase()) ||
-      (log.patientId && log.patientId.toLowerCase().includes(auditSearchQuery.toLowerCase())) ||
-      (log.actor && log.actor.toLowerCase().includes(auditSearchQuery.toLowerCase()))
-    return matchesType && matchesSearch
+  // Service-Categorized and Strictly Date-Sorted (Newest First) Photos List for Admin
+  const adminCategorizedPhotos = (() => {
+    const photos = []
+
+    // 1. Pharmacy Photos
+    prescriptions.forEach(rx => {
+      if (rx.photoProof) {
+        photos.push({
+          id: rx._id,
+          service: 'pharmacy',
+          serviceName: '💊 Pharmacy Medicine Handover',
+          patientId: rx.patientId,
+          doctorName: rx.doctorName || 'Doctor',
+          staffName: rx.dispensedByStaff || 'Duty Pharmacist',
+          itemSummary: rx.medicines?.map(m => m.name).join(', ') || 'Prescribed Medications',
+          timestamp: new Date(rx.dispensedAt || rx.updatedAt || rx.createdAt),
+          photoProof: rx.photoProof,
+          rawData: rx
+        })
+      }
+    })
+
+    // 2. Lab Photos (Sample vials and diagnostic sheets/films)
+    labOrders.forEach(lab => {
+      if (lab.photoProof) {
+        const isManual = lab.deliveryMode === 'PHYSICAL_COUNTER'
+        photos.push({
+          id: lab._id,
+          service: isManual ? 'manual' : 'lab',
+          serviceName: isManual ? '📄 Manual Physical Diagnostic Report' : '🧪 Lab Sample & Diagnostic Film',
+          patientId: lab.patientId,
+          doctorName: lab.doctorName || 'Doctor',
+          staffName: 'Pathology Lab In-Charge',
+          itemSummary: `${lab.testName} (${lab.findings || 'Sample in Analysis'})`,
+          timestamp: new Date(lab.updatedAt || lab.sampleCollectedAt || lab.createdAt),
+          photoProof: lab.photoProof,
+          rawData: lab
+        })
+      }
+    })
+
+    // 3. Ward Bedside Consumables Photos
+    admissionsList.forEach(adm => {
+      adm.resourcesAllocated?.forEach((res, idx) => {
+        if (res.photoProof) {
+          photos.push({
+            id: `${adm._id}-${idx}`,
+            service: 'ward',
+            serviceName: '🛏️ Ward Bedside Consumable Administration',
+            patientId: adm.patientId,
+            patientName: adm.patientName,
+            doctorName: adm.admittingDoctorName || 'Admitting Physician',
+            staffName: res.loggedByStaff || 'Duty Ward Sister',
+            itemSummary: `${res.itemName} (Qty: ${res.quantity}) - Bed: ${adm.bedNumber}`,
+            timestamp: new Date(res.loggedAt || adm.createdAt),
+            photoProof: res.photoProof,
+            rawData: adm
+          })
+        }
+      })
+    })
+
+    // Sort strictly date-wise: Newest First
+    photos.sort((a, b) => b.timestamp - a.timestamp)
+
+    // Filter by Service
+    if (photoServiceFilter === 'ALL') return photos
+    return photos.filter(p => p.service === photoServiceFilter)
+  })()
+
+  // Filter Registered Patients for Admin
+  const filteredAdminRegisteredPatients = registeredPatients.filter(p => {
+    if (!adminSearchQuery) return true
+    const q = adminSearchQuery.toLowerCase()
+    return p.name.toLowerCase().includes(q) || p.patientId.toLowerCase().includes(q) || p.phoneNumber.includes(q)
+  })
+
+  // Filter Discharged Patients for Admin
+  const filteredAdminDischargedPatients = dischargedPatientsList.filter(p => {
+    if (!adminSearchQuery) return true
+    const q = adminSearchQuery.toLowerCase()
+    return p.name.toLowerCase().includes(q) || p.patientId.toLowerCase().includes(q) || p.phoneNumber.includes(q)
   })
 
   return (
@@ -926,7 +1013,7 @@ function App() {
             {patientTab === 'overview' && (
               <div>
                 
-                {/* Official Discharge Certificate Banner (If Completed/Discharged) */}
+                {/* Official Discharge Certificate Banner */}
                 {(patientFullFile?.patient?.currentStatus === 'COMPLETED' || patientFullFile?.patient?.dischargeSummary) && (
                   <div style={{ backgroundColor: '#f0fdf4', border: '2px solid #22c55e', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -957,7 +1044,7 @@ function App() {
                   </div>
                 )}
 
-                {/* Active Specialist Referral Banner (If Referred) */}
+                {/* Active Specialist Referral Banner */}
                 {latestReferral && (
                   <div style={{ backgroundColor: '#fef2f2', border: '2px dashed #ef4444', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
@@ -1013,7 +1100,7 @@ function App() {
                   </div>
                 </div>
 
-                {/* Live Chronological Journey Timeline with Date & Time (Clickable for Detail View) */}
+                {/* Live Chronological Journey Timeline with Date & Time */}
                 <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', padding: '24px', borderRadius: '12px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ margin: 0, fontSize: '16px', color: '#0f172a' }}>
@@ -1328,7 +1415,7 @@ function App() {
 
             {doctorMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px', border: '1px solid #bbf7d0', fontWeight: '600' }}>{doctorMessage}</div>}
 
-            {/* Doctor View Controls (Queue Filter & Date Tabs) */}
+            {/* Doctor View Controls */}
             <div style={{ backgroundColor: 'white', padding: '16px 20px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -1383,7 +1470,7 @@ function App() {
             {/* Queue & Examination Workspace */}
             <div style={{ display: 'grid', gridTemplateColumns: activePatientForExam ? '1fr 1.3fr' : '1fr', gap: '24px' }}>
               
-              {/* Left Column: Patient List with Timestamps */}
+              {/* Left Column: Patient List */}
               <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h3 style={{ margin: 0, color: '#0f172a' }}>
@@ -1442,7 +1529,7 @@ function App() {
                 )}
               </div>
 
-              {/* Right Column: Active Patient Examination & Complete Journey Timeline */}
+              {/* Right Column: Active Patient Examination */}
               {activePatientForExam && (
                 <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
                   
@@ -1459,7 +1546,7 @@ function App() {
                     <button onClick={() => { setActivePatientForExam(null); setInspectedPatientFullFile(null); }} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '18px' }}>✕</button>
                   </div>
 
-                  {/* Complete Live Journey Timeline of Clicked Patient (Clickable for Details & Photo Proofs) */}
+                  {/* Complete Live Journey Timeline */}
                   <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px', maxHeight: '220px', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <strong style={{ fontSize: '13px', color: '#0f172a' }}>
@@ -1506,7 +1593,7 @@ function App() {
                     <button onClick={() => setDoctorActionTab('discharge')} style={{ padding: '6px 12px', fontSize: '12px', border: 'none', borderRadius: '4px', backgroundColor: doctorActionTab === 'discharge' ? '#16a34a' : '#dcfce7', color: doctorActionTab === 'discharge' ? 'white' : '#15803d', cursor: 'pointer', fontWeight: 'bold' }}>🏁 Discharge / Complete</button>
                   </div>
 
-                  {/* ACTION 1: ORDER LAB WITH DELIVERY MODE NOTICE */}
+                  {/* ACTION 1: ORDER LAB */}
                   {doctorActionTab === 'lab' && (
                     <form onSubmit={handleDoctorOrderLab}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Diagnostic Test:</label>
@@ -1533,7 +1620,7 @@ function App() {
                     </form>
                   )}
 
-                  {/* ACTION 2: PRESCRIBE WITH DOCTOR SIGNATURE */}
+                  {/* ACTION 2: PRESCRIBE */}
                   {doctorActionTab === 'rx' && (
                     <form onSubmit={handleDoctorPrescribe}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Medicines (Comma Separated):</label>
@@ -1544,7 +1631,7 @@ function App() {
                     </form>
                   )}
 
-                  {/* ACTION 3: REFERRAL / TRANSFER */}
+                  {/* ACTION 3: REFERRAL */}
                   {doctorActionTab === 'referral' && (
                     <form onSubmit={handleDoctorReferral}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Transfer to Super-Specialty:</label>
@@ -1581,7 +1668,7 @@ function App() {
                     </form>
                   )}
 
-                  {/* ACTION 5: DEDICATED DISCHARGE / COMPLETE OUTPATIENT ACTION */}
+                  {/* ACTION 5: DISCHARGE */}
                   {doctorActionTab === 'discharge' && (
                     <form onSubmit={handleDoctorDischargeSubmit}>
                       <label style={{ fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Discharge Classification:</label>
@@ -1611,7 +1698,7 @@ function App() {
           </div>
         )}
 
-        {/* 4. DIAGNOSTIC LAB DASHBOARD (WITH LIVE WEBCAM & PHOTO PROOF MODAL) */}
+        {/* 4. DIAGNOSTIC LAB DASHBOARD */}
         {activeView === 'lab' && currentUser?.role === 'lab' && (
           <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -1707,7 +1794,6 @@ function App() {
                         )}
                       </div>
 
-                      {/* Photo Thumbnail in Lab View */}
                       {order.photoProof && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <img src={order.photoProof} alt="Lab Proof Thumbnail" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1', cursor: 'pointer' }} onClick={() => setSelectedDetailItem({ type: 'LAB_REPORT', stage: order.testName, photoProof: order.photoProof, clinicalFindings: order.findings, timestamp: order.updatedAt })} />
@@ -1722,7 +1808,7 @@ function App() {
           </div>
         )}
 
-        {/* 5. PHARMACY DASHBOARD (WITH LIVE WEBCAM & HANDOVER PHOTO PROOF) */}
+        {/* 5. PHARMACY DASHBOARD */}
         {activeView === 'pharmacy' && currentUser?.role === 'pharmacy' && (
           <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -1791,7 +1877,6 @@ function App() {
                         )}
                       </div>
 
-                      {/* Photo Thumbnail in Pharmacy View */}
                       {rx.photoProof && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                           <img src={rx.photoProof} alt="Rx Proof Thumbnail" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1', cursor: 'pointer' }} onClick={() => setSelectedDetailItem({ type: 'PRESCRIPTION', stage: 'Medication Handover Proof', photoProof: rx.photoProof, medicines: rx.medicines, timestamp: rx.dispensedAt })} />
@@ -1806,7 +1891,7 @@ function App() {
           </div>
         )}
 
-        {/* 6. INPATIENT WARD DASHBOARD (ACTIVE & DISCHARGED ARCHIVES WITH ZERO LEAKAGE RESOURCE LEDGER) */}
+        {/* 6. INPATIENT WARD DASHBOARD */}
         {activeView === 'ward' && currentUser?.role === 'ward' && (
           <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -1817,7 +1902,7 @@ function App() {
 
             {wardMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{wardMessage}</div>}
 
-            {/* Ward Filter Switcher: Active vs Discharged Archives */}
+            {/* Ward Filter Switcher */}
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px' }}>
               <button
                 onClick={() => setWardViewFilter('admitted')}
@@ -1905,7 +1990,7 @@ function App() {
                       </div>
                     </div>
 
-                    {/* Consumables and Resources Ledger (Zero Leakage) */}
+                    {/* Consumables and Resources Ledger */}
                     <div style={{ backgroundColor: 'white', padding: '14px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                         <strong style={{ fontSize: '13px', color: '#334155' }}>
@@ -1942,7 +2027,7 @@ function App() {
                       )}
                     </div>
 
-                    {/* Nurse Log Resource Action Bar with Bedside Live Camera */}
+                    {/* Nurse Log Resource Action Bar */}
                     {adm.status === 'ADMITTED' && (
                       <div style={{ backgroundColor: '#f1f5f9', padding: '14px', borderRadius: '8px' }}>
                         <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '6px' }}>
@@ -1971,7 +2056,7 @@ function App() {
           </div>
         )}
 
-        {/* 7. O/P COUNTER DESK (STAFF AUTHENTICATED) */}
+        {/* 7. O/P COUNTER DESK */}
         {activeView === 'op-desk' && currentUser?.role === 'op-desk' && (
           <div style={{ width: '100%', maxWidth: '620px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -2042,7 +2127,6 @@ function App() {
                   </div>
                 </div>
 
-                {/* 1-Click WhatsApp Dispatch Button */}
                 <a 
                   href={`https://api.whatsapp.com/send?phone=91${opTicket.patient.phoneNumber.replace(/[^0-9]/g, '').slice(-10)}&text=${encodeURIComponent(`🏥 *Chikitsya Setu (Gandhi Hospital)*\nHello *${opTicket.patient.name}*!\nYour O/P Registration is complete.\n\n🆔 *Patient ID:* ${opTicket.credentials.patientId}\n🔑 *Passcode:* ${opTicket.credentials.password}\n👨‍⚕️ *Assigned Doctor:* ${opTicket.assignedTo.doctorName} (Room 102)\n🕒 *Time:* ${formatDateTime(new Date())}\n\n📲 *Track your visit live:* http://localhost:5173`)}`}
                   target="_blank" 
@@ -2070,7 +2154,7 @@ function App() {
           </div>
         )}
 
-        {/* 8. EXECUTIVE HOSPITAL ADMINISTRATION & VIGILANCE CONSOLE (CLEAN & STRUCTURED) */}
+        {/* 8. EXACT CLEAN ADMIN DASHBOARD (ONLY THE 5 REQUESTED SECTIONS) */}
         {activeView === 'admin' && currentUser?.role === 'admin' && (
           <div style={{ width: '100%', maxWidth: '1060px' }}>
             
@@ -2078,11 +2162,11 @@ function App() {
             <div style={{ backgroundColor: 'white', padding: '24px 32px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h2 style={{ margin: 0, color: '#0f172a', fontSize: '22px', fontWeight: '800' }}>📊 Hospital Administration Console</h2>
-                  <span style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>● Live Sync Active</span>
+                  <h2 style={{ margin: 0, color: '#0f172a', fontSize: '22px', fontWeight: '800' }}>📊 Hospital Administration</h2>
+                  <span style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>● Live Sync</span>
                 </div>
                 <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '13px' }}>
-                  Gandhi Hospital Executive Vigilance • Complete Zero-Neglect & Anti-Theft Oversight
+                  Executive Master Console: Direct inspection of Patients, Doctors, Labs, Service Photos, and Discharged Records.
                 </p>
               </div>
 
@@ -2091,61 +2175,67 @@ function App() {
                   fetchHospitalStats()
                   fetchHospitalAuditTrail()
                   fetchDoctors()
+                  fetchPatientsList()
+                  fetchLabOrders()
+                  fetchPrescriptions()
                   fetchAdmissions()
                 }} 
                 style={{ padding: '9px 18px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>🔄</span> Refresh Live Data
+                <span>🔄</span> Refresh Data
               </button>
             </div>
 
-            {/* 4 Clean Key Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Registered Patients</span>
-                <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>{hospitalStats?.totalPatients || 0}</div>
-                <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px', fontWeight: '600' }}>✓ Load-Balanced Triage</div>
-              </div>
-
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Doctors On Duty</span>
-                <div style={{ fontSize: '26px', fontWeight: '800', color: '#2563eb', marginTop: '4px' }}>{doctorsList.length}</div>
-                <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px', fontWeight: '600' }}>Across 6 Departments</div>
-              </div>
-
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Lab Diagnostics</span>
-                <div style={{ fontSize: '26px', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>{hospitalStats?.completedReports || 0}</div>
-                <div style={{ fontSize: '11px', color: '#d97706', marginTop: '2px', fontWeight: '600' }}>100% Free Public EHR</div>
-              </div>
-
-              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Verified Photo Proofs</span>
-                <div style={{ fontSize: '26px', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>{allLogsWithPhotos.length}</div>
-                <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px', fontWeight: '600' }}>✓ Anti-Theft Handover Evidence</div>
-              </div>
-            </div>
-
-            {/* Clean Main Tab Navigation */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0', paddingBottom: '12px', marginBottom: '20px' }}>
+            {/* Exactly 5 Clean Main Navigation Tabs */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0', paddingBottom: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
               <button 
-                onClick={() => setAdminActiveTab('ledger')}
+                onClick={() => { setAdminActiveTab('registered-patients'); setAdminSearchQuery(''); }}
                 style={{ 
-                  padding: '9px 18px', 
+                  padding: '10px 18px', 
                   borderRadius: '8px', 
                   border: 'none', 
-                  backgroundColor: adminActiveTab === 'ledger' ? '#0f172a' : '#f1f5f9', 
-                  color: adminActiveTab === 'ledger' ? 'white' : '#475569', 
+                  backgroundColor: adminActiveTab === 'registered-patients' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'registered-patients' ? 'white' : '#475569', 
                   fontWeight: 'bold', 
                   fontSize: '13px', 
                   cursor: 'pointer' 
                 }}>
-                📋 Full System Event Ledger ({filteredAuditLogs.length})
+                👥 1. Registered Patients ({registeredPatients.length})
+              </button>
+
+              <button 
+                onClick={() => setAdminActiveTab('doctors-duty')}
+                style={{ 
+                  padding: '10px 18px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  backgroundColor: adminActiveTab === 'doctors-duty' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'doctors-duty' ? 'white' : '#475569', 
+                  fontWeight: 'bold', 
+                  fontSize: '13px', 
+                  cursor: 'pointer' 
+                }}>
+                👨‍⚕️ 2. Doctors on Duty ({doctorsList.length})
+              </button>
+
+              <button 
+                onClick={() => setAdminActiveTab('labs')}
+                style={{ 
+                  padding: '10px 18px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  backgroundColor: adminActiveTab === 'labs' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'labs' ? 'white' : '#475569', 
+                  fontWeight: 'bold', 
+                  fontSize: '13px', 
+                  cursor: 'pointer' 
+                }}>
+                🔬 3. Diagnostic Labs ({labOrders.length})
               </button>
 
               <button 
                 onClick={() => setAdminActiveTab('photos')}
                 style={{ 
-                  padding: '9px 18px', 
+                  padding: '10px 18px', 
                   borderRadius: '8px', 
                   border: 'none', 
                   backgroundColor: adminActiveTab === 'photos' ? '#0f172a' : '#f1f5f9', 
@@ -2154,211 +2244,131 @@ function App() {
                   fontSize: '13px', 
                   cursor: 'pointer' 
                 }}>
-                📸 Photo Proof Audit Gallery ({allLogsWithPhotos.length})
+                📸 4. Photos (Service-Sorted & Date-Wise) ({adminCategorizedPhotos.length})
               </button>
 
               <button 
-                onClick={() => setAdminActiveTab('doctors')}
+                onClick={() => { setAdminActiveTab('discharged-patients'); setAdminSearchQuery(''); }}
                 style={{ 
-                  padding: '9px 18px', 
+                  padding: '10px 18px', 
                   borderRadius: '8px', 
                   border: 'none', 
-                  backgroundColor: adminActiveTab === 'doctors' ? '#0f172a' : '#f1f5f9', 
-                  color: adminActiveTab === 'doctors' ? 'white' : '#475569', 
+                  backgroundColor: adminActiveTab === 'discharged-patients' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'discharged-patients' ? 'white' : '#475569', 
                   fontWeight: 'bold', 
                   fontSize: '13px', 
                   cursor: 'pointer' 
                 }}>
-                👨‍⚕️ Doctors & Department Shifts ({doctorsList.length})
-              </button>
-
-              <button 
-                onClick={() => setAdminActiveTab('wards')}
-                style={{ 
-                  padding: '9px 18px', 
-                  borderRadius: '8px', 
-                  border: 'none', 
-                  backgroundColor: adminActiveTab === 'wards' ? '#0f172a' : '#f1f5f9', 
-                  color: adminActiveTab === 'wards' ? 'white' : '#475569', 
-                  fontWeight: 'bold', 
-                  fontSize: '13px', 
-                  cursor: 'pointer' 
-                }}>
-                🛏️ Inpatient Bed & Consumables Summary
+                🏁 5. Discharged Patients ({dischargedPatientsList.length})
               </button>
             </div>
 
-            {/* TAB 1: STRUCTURED EVENT LEDGER */}
-            {adminActiveTab === 'ledger' && (
-              <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
-                
-                {/* Search & Filter Controls */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px', flexWrap: 'wrap' }}>
-                  <input
-                    type="text"
-                    placeholder="🔍 Search patient, ID, doctor, medicine, or staff..."
-                    style={{ flex: 1, minWidth: '260px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                    value={auditSearchQuery}
-                    onChange={e => setAuditSearchQuery(e.target.value)}
-                  />
-
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {[
-                      { key: 'ALL', label: 'All' },
-                      { key: 'REGISTRATION', label: 'Registrations' },
-                      { key: 'REFERRAL', label: 'Referrals' },
-                      { key: 'LAB', label: 'Labs' },
-                      { key: 'PRESCRIPTION', label: 'Prescriptions' },
-                      { key: 'ADMISSION', label: 'Wards' },
-                      { key: 'DISCHARGE', label: 'Discharges' }
-                    ].map(f => (
-                      <button
-                        key={f.key}
-                        onClick={() => setAuditFilterType(f.key)}
-                        style={{
-                          padding: '7px 12px',
-                          borderRadius: '6px',
-                          border: 'none',
-                          backgroundColor: auditFilterType === f.key ? '#0f172a' : '#f1f5f9',
-                          color: auditFilterType === f.key ? 'white' : '#475569',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          cursor: 'pointer'
-                        }}>
-                        {f.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Clean, Structured Table */}
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '12px' }}>
-                        <th style={{ padding: '12px 16px' }}>EVENT & PATIENT</th>
-                        <th style={{ padding: '12px 16px' }}>CLINICAL ACTION & DETAILS</th>
-                        <th style={{ padding: '12px 16px' }}>AUTHORIZING STAFF</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>DATE & TIME</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredAuditLogs.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
-                            No matching hospital audit records found.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredAuditLogs.map((log, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfcfd' }}>
-                            <td style={{ padding: '14px 16px', verticalAlign: 'top', width: '25%' }}>
-                              <strong style={{ color: log.color, display: 'block', fontSize: '13px' }}>{log.title}</strong>
-                              <span style={{ fontSize: '12px', color: '#64748b' }}>{log.patientId}</span>
-                            </td>
-
-                            <td style={{ padding: '14px 16px', verticalAlign: 'top', color: '#334155', lineHeight: '1.4' }}>
-                              <div>{log.details}</div>
-                              {log.photoProof && (
-                                <button
-                                  onClick={() => setSelectedDetailItem({
-                                    type: log.type,
-                                    stage: log.title,
-                                    performedBy: log.actor,
-                                    timestamp: log.timestamp,
-                                    details: log.details,
-                                    photoProof: log.photoProof
-                                  })}
-                                  style={{ marginTop: '6px', padding: '3px 8px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                  <span>📸</span> Inspect Photo Proof
-                                </button>
-                              )}
-                            </td>
-
-                            <td style={{ padding: '14px 16px', verticalAlign: 'top', color: '#475569', fontWeight: '600', width: '20%' }}>
-                              {log.actor}
-                            </td>
-
-                            <td style={{ padding: '14px 16px', verticalAlign: 'top', textAlign: 'right', color: '#2563eb', fontWeight: 'bold', fontSize: '12px', width: '20%' }}>
-                              🕒 {formatDateTime(log.timestamp)}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-              </div>
-            )}
-
-            {/* TAB 2: PHOTO PROOF AUDIT GALLERY */}
-            {adminActiveTab === 'photos' && (
+            {/* SECTION 1: REGISTERED PATIENTS (CLICK TO VIEW FULL PATIENT UI FILE) */}
+            {adminActiveTab === 'registered-patients' && (
               <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div>
-                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '16px' }}>📸 Visual Photographic Handover Evidence</h3>
-                    <p style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: '12px' }}>Permanent photo logs captured during physical dispensations, sample collections, and bedside administration.</p>
+                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>👥 All Registered Patients</h3>
+                    <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: '600' }}>
+                      💡 Click on any patient to open their complete file with exact same Patient UI & Timeline
+                    </span>
                   </div>
-                  <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
-                    {allLogsWithPhotos.length} Verified Photos
-                  </span>
+
+                  <input
+                    type="text"
+                    placeholder="🔍 Search name, ID, phone..."
+                    style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', width: '240px' }}
+                    value={adminSearchQuery}
+                    onChange={e => setAdminSearchQuery(e.target.value)}
+                  />
                 </div>
 
-                {allLogsWithPhotos.length === 0 ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
-                    No photos captured yet. Staff will upload photos when dispensing medicines, collecting samples, or administering supplies.
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                    {allLogsWithPhotos.map((item, idx) => (
-                      <div 
-                        key={idx} 
-                        onClick={() => setSelectedDetailItem({
-                          type: item.type,
-                          stage: item.title,
-                          performedBy: item.actor,
-                          timestamp: item.timestamp,
-                          details: item.details,
-                          photoProof: item.photoProof
-                        })}
-                        style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f8fafc', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-                        <div style={{ height: '160px', backgroundColor: '#0f172a', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                          <img src={item.photoProof} alt="Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {filteredAdminRegisteredPatients.length === 0 ? (
+                    <p style={{ color: '#94a3b8', textAlign: 'center', padding: '24px' }}>No matching registered patients found.</p>
+                  ) : (
+                    filteredAdminRegisteredPatients.map((p, idx) => (
+                      <div
+                        key={p.patientId}
+                        onClick={() => handleAdminInspectPatient(p.patientId)}
+                        style={{
+                          border: '1px solid #e2e8f0',
+                          padding: '16px',
+                          borderRadius: '10px',
+                          backgroundColor: '#f8fafc',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '15px', color: '#0f172a' }}>#{idx + 1} {p.name}</strong>
+                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#2563eb', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '6px' }}>{p.patientId}</span>
+                            <span style={{ fontSize: '12px', color: '#475569' }}>{p.age}y {p.gender}</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            📱 Mobile: +91 {p.phoneNumber} • 🕒 Reg Date: <strong>{formatDateTime(p.createdAt)}</strong>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#0f172a', marginTop: '2px' }}>
+                            Assigned Doctor: <strong>{p.assignedDoctorId || 'Doctor'}</strong> • Passcode: <strong>{p.password}</strong>
+                          </div>
                         </div>
-                        <div style={{ padding: '14px' }}>
-                          <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block', marginBottom: '4px' }}>{item.title}</strong>
-                          <div style={{ fontSize: '12px', color: '#64748b' }}>By: <strong>{item.actor}</strong></div>
-                          <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '4px', fontWeight: '600' }}>🕒 {formatDateTime(item.timestamp)}</div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{
+                            padding: '4px 10px',
+                            borderRadius: '14px',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            backgroundColor: p.currentStatus === 'COMPLETED' ? '#dcfce7' : p.currentStatus === 'WAITING_FOR_DOCTOR' ? '#dbeafe' : '#fef3c7',
+                            color: p.currentStatus === 'COMPLETED' ? '#15803d' : p.currentStatus === 'WAITING_FOR_DOCTOR' ? '#1e40af' : '#92400e'
+                          }}>
+                            {p.currentStatus.replace(/_/g, ' ')}
+                          </span>
+                          <span style={{ display: 'block', fontSize: '12px', color: '#2563eb', fontWeight: 'bold', marginTop: '6px' }}>
+                            Open Patient File ➔
+                          </span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
-            {/* TAB 3: DOCTORS & DEPARTMENT LOAD */}
-            {adminActiveTab === 'doctors' && (
+            {/* SECTION 2: DOCTORS ON DUTY (CLICK TO VIEW ASSIGNED PATIENTS & STATUS) */}
+            {adminActiveTab === 'doctors-duty' && (
               <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: '16px' }}>👨‍⚕️ On-Shift Physicians & Real-Time OPD Desk Status</h3>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>👨‍⚕️ On-Shift Physicians & OPD Room Allocations</h3>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>Real-time triage queue load balance and physical room locations</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
                   {doctorsList.map(doc => {
                     const loc = DEPARTMENT_LOCATIONS[doc.department] || { room: 'Room 102', block: 'OPD Block A' }
                     return (
-                      <div key={doc.doctorId} style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div 
+                        key={doc.doctorId}
+                        onClick={() => setAdminSelectedDoctor(doc)}
+                        style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '12px', backgroundColor: '#f8fafc', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                           <div>
                             <strong style={{ fontSize: '16px', color: '#0f172a' }}>{doc.name}</strong>
-                            <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold', marginTop: '2px' }}>{doc.department}</div>
-                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                              📍 <strong>{loc.room}</strong> • {loc.block}
-                            </div>
+                            <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold', marginTop: '2px' }}>{doc.department} (ID: {doc.doctorId})</div>
                           </div>
                           <span style={{ padding: '3px 8px', borderRadius: '12px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 'bold' }}>
-                            ● Active Shift
+                            ● On Duty
                           </span>
+                        </div>
+
+                        <div style={{ fontSize: '13px', color: '#475569', marginTop: '6px' }}>
+                          📍 Physical Location: <strong>{loc.room}</strong> ({loc.block})
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '6px', fontWeight: 'bold' }}>
+                          ✓ Active Shift Verified • Click to Inspect Doctor Load ➔
                         </div>
                       </div>
                     )
@@ -2367,62 +2377,216 @@ function App() {
               </div>
             )}
 
-            {/* TAB 4: INPATIENT BED & CONSUMABLES SUMMARY */}
-            {adminActiveTab === 'wards' && (
+            {/* SECTION 3: DIAGNOSTIC LABS (CLICK TO VIEW FULL REPORT & PROOFS) */}
+            {adminActiveTab === 'labs' && (
               <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: '16px' }}>🛏️ Inpatient Bed Allocation & Supply Audit</h3>
+                <div style={{ marginBottom: '16px' }}>
+                  <h3 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>🔬 Diagnostic Laboratory Orders & Reports</h3>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>Complete digital and physical diagnostic orders with clinical findings & proofs</span>
+                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
-                  <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
-                    <span style={{ fontSize: '12px', color: '#1e40af', fontWeight: 'bold' }}>Active Admitted Inpatients</span>
-                    <h3 style={{ margin: '4px 0 0 0', color: '#1d4ed8', fontSize: '22px' }}>{activeAdmittedList.length}</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {labOrders.length === 0 ? (
+                    <p style={{ color: '#94a3b8', textAlign: 'center', padding: '24px' }}>No diagnostic lab orders placed.</p>
+                  ) : (
+                    labOrders.map(lab => (
+                      <div 
+                        key={lab._id}
+                        onClick={() => setSelectedDetailItem({
+                          type: 'LAB_REPORT',
+                          stage: `Diagnostic Lab: ${lab.testName}`,
+                          performedBy: lab.doctorName || 'Pathology In-Charge',
+                          timestamp: lab.updatedAt || lab.createdAt,
+                          clinicalFindings: lab.findings,
+                          deliveryMode: lab.deliveryMode,
+                          deliveryInstructions: lab.deliveryInstructions,
+                          room: lab.labRoom,
+                          photoProof: lab.photoProof,
+                          details: lab.findings ? `Findings: ${lab.findings}` : 'Sample under analysis'
+                        })}
+                        style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '10px', backgroundColor: '#f8fafc', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <strong style={{ fontSize: '15px', color: '#0f172a' }}>{lab.testName}</strong>
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                              Patient: <strong>{lab.patientId}</strong> • Ordered by: <strong>{lab.doctorName} ({lab.doctorDepartment})</strong>
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#2563eb', marginTop: '2px' }}>
+                              Location: {lab.labRoom} • Mode: <strong>{lab.deliveryMode === 'PHYSICAL_COUNTER' ? '📄 Physical Hard-Copy' : '⚡ Digital EHR Direct'}</strong>
+                            </div>
+                            {lab.findings && (
+                              <div style={{ fontSize: '12px', color: '#0f172a', marginTop: '6px', backgroundColor: 'white', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                <strong>Findings:</strong> {lab.findings}
+                              </div>
+                            )}
+                          </div>
+
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', backgroundColor: lab.status === 'REPORT_READY' ? '#dcfce7' : '#fef3c7', color: lab.status === 'REPORT_READY' ? '#15803d' : '#b45309' }}>
+                              {lab.status}
+                            </span>
+                            <div style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold', marginTop: '6px' }}>
+                              🕒 {formatDateTime(lab.updatedAt || lab.createdAt)}
+                            </div>
+                            {lab.photoProof && (
+                              <span style={{ display: 'inline-block', fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', marginTop: '4px' }}>
+                                📸 Proof Attached
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 4: PHOTOS (SERVICE-SORTED & STRICTLY DATE-WISE) */}
+            {adminActiveTab === 'photos' && (
+              <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>📸 Verified Photographic Proofs</h3>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Categorized by service & sorted in strict chronological order (Newest first)</span>
                   </div>
 
-                  <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-                    <span style={{ fontSize: '12px', color: '#15803d', fontWeight: 'bold' }}>Discharged Archives</span>
-                    <h3 style={{ margin: '4px 0 0 0', color: '#16a34a', fontSize: '22px' }}>{dischargedAdmittedList.length}</h3>
-                  </div>
-
-                  <div style={{ padding: '16px', backgroundColor: '#faf5ff', borderRadius: '10px', border: '1px solid #e9d5ff' }}>
-                    <span style={{ fontSize: '12px', color: '#7e22ce', fontWeight: 'bold' }}>Total Admissions Logged</span>
-                    <h3 style={{ margin: '4px 0 0 0', color: '#9333ea', fontSize: '22px' }}>{admissionsList.length}</h3>
+                  {/* Clean Service Filter Buttons */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      { key: 'ALL', label: 'All Services' },
+                      { key: 'pharmacy', label: '💊 Pharmacy Handover' },
+                      { key: 'lab', label: '🧪 Lab Samples & Films' },
+                      { key: 'ward', label: '🛏️ Ward Consumables' },
+                      { key: 'manual', label: '📄 Manual Reports' }
+                    ].map(btn => (
+                      <button
+                        key={btn.key}
+                        onClick={() => setPhotoServiceFilter(btn.key)}
+                        style={{
+                          padding: '7px 12px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          backgroundColor: photoServiceFilter === btn.key ? '#0f172a' : '#f1f5f9',
+                          color: photoServiceFilter === btn.key ? 'white' : '#475569',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}>
+                        {btn.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>PATIENT & BED</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>WARD & STATUS</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>CONSUMABLES LOGGED</th>
-                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>TIMESTAMPS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {admissionsList.map((adm, idx) => (
-                        <tr key={adm._id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfcfd' }}>
-                          <td style={{ padding: '12px 16px' }}>
-                            <strong>{adm.patientName || adm.patientId}</strong>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>Ph: +91 {adm.phoneNumber}</div>
-                          </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <div>{adm.wardType} ({adm.bedNumber})</div>
-                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: adm.status === 'DISCHARGED' ? '#15803d' : '#991b1b' }}>{adm.status}</span>
-                          </td>
-                          <td style={{ padding: '12px 16px' }}>
-                            <strong>{adm.resourcesAllocated?.length || 0} Consumables</strong>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>Zero-leakage audited</div>
-                          </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', color: '#2563eb' }}>
-                            🕒 {formatDateTime(adm.admittedAt || adm.createdAt)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {adminCategorizedPhotos.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                    No photos captured for this service category yet.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    {adminCategorizedPhotos.map((item, idx) => (
+                      <div 
+                        key={idx}
+                        onClick={() => setSelectedDetailItem({
+                          type: item.service,
+                          stage: item.serviceName,
+                          performedBy: item.staffName,
+                          timestamp: item.timestamp,
+                          details: `${item.itemSummary} (Patient: ${item.patientId})`,
+                          photoProof: item.photoProof
+                        })}
+                        style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f8fafc', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                        <div style={{ height: '170px', backgroundColor: '#0f172a', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                          <img src={item.photoProof} alt="Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+
+                        <div style={{ padding: '14px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase' }}>{item.serviceName}</span>
+                          <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block', marginTop: '2px' }}>{item.itemSummary}</strong>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>Patient: <strong>{item.patientId}</strong></div>
+                          <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '2px' }}>Authorized by: {item.staffName}</div>
+                          <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '6px', fontWeight: 'bold' }}>
+                            🕒 {formatDateTime(item.timestamp)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SECTION 5: DISCHARGED PATIENTS (CLICK TO VIEW COMPLETE PATIENT UI & ARCHIVE) */}
+            {adminActiveTab === 'discharged-patients' && (
+              <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '18px' }}>🏁 Discharged Patients Permanent Archive</h3>
+                    <span style={{ fontSize: '12px', color: '#15803d', fontWeight: '600' }}>
+                      💡 Click on any discharged patient to open their complete file with exact same Patient UI, Discharge Certificate & Timeline
+                    </span>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="🔍 Search name, ID, phone..."
+                    style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', width: '240px' }}
+                    value={adminSearchQuery}
+                    onChange={e => setAdminSearchQuery(e.target.value)}
+                  />
                 </div>
 
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {filteredAdminDischargedPatients.length === 0 ? (
+                    <p style={{ color: '#94a3b8', textAlign: 'center', padding: '24px' }}>No discharged patient records found.</p>
+                  ) : (
+                    filteredAdminDischargedPatients.map((p, idx) => (
+                      <div
+                        key={p.patientId}
+                        onClick={() => handleAdminInspectPatient(p.patientId)}
+                        style={{
+                          border: '1px solid #bbf7d0',
+                          padding: '16px',
+                          borderRadius: '10px',
+                          backgroundColor: '#f0fdf4',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <strong style={{ fontSize: '15px', color: '#0f172a' }}>#{idx + 1} {p.name}</strong>
+                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#15803d', backgroundColor: '#dcfce7', padding: '2px 8px', borderRadius: '6px' }}>{p.patientId}</span>
+                            <span style={{ fontSize: '12px', color: '#475569' }}>{p.age}y {p.gender}</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                            📱 Mobile: +91 {p.phoneNumber} • Reg: {formatDateTime(p.createdAt)}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#15803d', marginTop: '2px', fontWeight: '600' }}>
+                            🏁 Discharged by: {p.dischargedByDoctorName || p.assignedDoctorId} • {p.dischargeType || 'Routine Outpatient Completion'}
+                          </div>
+                          {p.dischargeSummary && (
+                            <div style={{ fontSize: '12px', color: '#0f172a', marginTop: '4px', backgroundColor: 'white', padding: '6px 10px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                              <strong>Doctor Summary:</strong> "{p.dischargeSummary}"
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ padding: '4px 10px', borderRadius: '14px', fontSize: '11px', fontWeight: 'bold', backgroundColor: '#dcfce7', color: '#15803d' }}>
+                            🏁 DISCHARGED
+                          </span>
+                          <span style={{ display: 'block', fontSize: '12px', color: '#15803d', fontWeight: 'bold', marginTop: '6px' }}>
+                            Open Discharged File ➔
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
@@ -2430,6 +2594,172 @@ function App() {
         )}
 
       </main>
+
+      {/* DEDICATED ADMIN FULL PATIENT EHR INSPECTION MODAL (EXACT SAME AS PATIENT UI) */}
+      {adminInspectedPatientFile && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '20px' }}>
+          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '860px', borderRadius: '18px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)', position: 'relative', maxHeight: '92vh', overflowY: 'auto' }}>
+            <button 
+              onClick={() => setAdminInspectedPatientFile(null)} 
+              style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer', color: '#64748b' }}>
+              ✕
+            </button>
+
+            {/* Profile Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '16px' }}>
+              <div>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '1px' }}>Admin Inspection Mode • Electronic Health Record</span>
+                <h2 style={{ margin: '4px 0 2px 0', color: '#0f172a' }}>{adminInspectedPatientFile.patient?.name}</h2>
+                <span style={{ fontSize: '13px', color: '#64748b' }}>Patient ID: <strong>{adminInspectedPatientFile.patient?.patientId}</strong> | WhatsApp: +91 {adminInspectedPatientFile.patient?.phoneNumber}</span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Registered On:</span>
+                <strong style={{ fontSize: '13px', color: '#0f172a' }}>{formatDateTime(adminInspectedPatientFile.patient?.createdAt)}</strong>
+              </div>
+            </div>
+
+            {/* 4 Tabs same as Patient UI */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '20px' }}>
+              <button onClick={() => setAdminInspectedPatientTab('overview')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: adminInspectedPatientTab === 'overview' ? '#0f172a' : '#f1f5f9', color: adminInspectedPatientTab === 'overview' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+                📍 Live Journey Timeline
+              </button>
+              <button onClick={() => setAdminInspectedPatientTab('labs')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: adminInspectedPatientTab === 'labs' ? '#0f172a' : '#f1f5f9', color: adminInspectedPatientTab === 'labs' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+                🧪 Lab Reports ({adminInspectedPatientFile.labRequests?.length || 0})
+              </button>
+              <button onClick={() => setAdminInspectedPatientTab('medicines')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: adminInspectedPatientTab === 'medicines' ? '#0f172a' : '#f1f5f9', color: adminInspectedPatientTab === 'medicines' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+                💊 Prescriptions ({adminInspectedPatientFile.prescriptions?.length || 0})
+              </button>
+              <button onClick={() => setAdminInspectedPatientTab('admissions')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: adminInspectedPatientTab === 'admissions' ? '#0f172a' : '#f1f5f9', color: adminInspectedPatientTab === 'admissions' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
+                🛏️ Ward & Micro-Resources
+              </button>
+            </div>
+
+            {/* TAB: OVERVIEW TIMELINE */}
+            {adminInspectedPatientTab === 'overview' && (
+              <div>
+                {(adminInspectedPatientFile.patient?.currentStatus === 'COMPLETED' || adminInspectedPatientFile.patient?.dischargeSummary) && (
+                  <div style={{ backgroundColor: '#f0fdf4', border: '2px solid #22c55e', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
+                    <strong style={{ color: '#15803d', fontSize: '15px' }}>🏁 Outpatient Consultation Completed & Discharge Authorized</strong>
+                    <div style={{ fontSize: '12px', color: '#166534', marginTop: '2px' }}>
+                      Discharged by: <strong>{adminInspectedPatientFile.patient?.dischargedByDoctorName || 'Doctor'}</strong> • {formatDateTime(adminInspectedPatientFile.patient?.dischargedAt)}
+                    </div>
+                    <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #bbf7d0', marginTop: '8px', fontSize: '13px' }}>
+                      <strong>Summary:</strong> {adminInspectedPatientFile.patient?.dischargeSummary}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {adminInspectedPatientFile.timeline?.map((item, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => setSelectedDetailItem(item)}
+                      style={{ display: 'flex', gap: '12px', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#fafafa', cursor: 'pointer' }}>
+                      <div style={{ fontSize: '20px', width: '32px', height: '32px', borderRadius: '6px', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0' }}>
+                        {item.icon}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong style={{ fontSize: '13px', color: '#0f172a' }}>{item.stage}</strong>
+                          <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold' }}>🕒 {formatDateTime(item.timestamp)}</span>
+                        </div>
+                        <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#475569' }}>{item.details}</p>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                          By: <strong>{item.performedBy || item.doctorName}</strong> {item.photoProof && '📸 [Photo Proof Attached]'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: LAB REPORTS */}
+            {adminInspectedPatientTab === 'labs' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {adminInspectedPatientFile.labRequests?.map(lab => (
+                  <div key={lab._id} style={{ border: '1px solid #e2e8f0', padding: '14px', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <strong style={{ fontSize: '14px' }}>{lab.testName}</strong>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#15803d' }}>{lab.status}</span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Ordered by {lab.doctorName} • {formatDateTime(lab.createdAt)}</div>
+                    {lab.findings && <div style={{ marginTop: '6px', fontSize: '12px', backgroundColor: 'white', padding: '8px', borderRadius: '6px' }}>Findings: {lab.findings}</div>}
+                    {lab.photoProof && (
+                      <div style={{ marginTop: '8px' }}>
+                        <img src={lab.photoProof} alt="Proof" style={{ height: '60px', borderRadius: '4px' }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB: MEDICINES */}
+            {adminInspectedPatientTab === 'medicines' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {adminInspectedPatientFile.prescriptions?.map(rx => (
+                  <div key={rx._id} style={{ border: '1px solid #e2e8f0', padding: '14px', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <strong style={{ fontSize: '14px' }}>Prescription by {rx.doctorName}</strong>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#15803d' }}>{rx.status}</span>
+                    </div>
+                    <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13px' }}>
+                      {rx.medicines?.map((m, i) => (
+                        <li key={i}>{m.name} - {m.dosage} ({m.durationDays} days)</li>
+                      ))}
+                    </ul>
+                    {rx.photoProof && (
+                      <div style={{ marginTop: '8px' }}>
+                        <img src={rx.photoProof} alt="Proof" style={{ height: '60px', borderRadius: '4px' }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* TAB: WARD ADMISSIONS */}
+            {adminInspectedPatientTab === 'admissions' && (
+              <div>
+                {adminInspectedPatientFile.admission ? (
+                  <div style={{ border: '1px solid #e2e8f0', padding: '16px', borderRadius: '8px', backgroundColor: '#f8fafc' }}>
+                    <strong>Ward: {adminInspectedPatientFile.admission.wardType} ({adminInspectedPatientFile.admission.bedNumber})</strong>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>Admitted on: {formatDateTime(adminInspectedPatientFile.admission.admittedAt)}</div>
+                    <h4 style={{ margin: '10px 0 6px 0', fontSize: '13px' }}>Consumables Logged:</h4>
+                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px' }}>
+                      {adminInspectedPatientFile.admission.resourcesAllocated?.map((res, i) => (
+                        <li key={i}>{res.itemName} (Qty: {res.quantity}) - {res.loggedByStaff} • {formatDateTime(res.loggedAt)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p style={{ color: '#64748b' }}>Outpatient record.</p>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* DEDICATED DOCTOR LOAD MODAL */}
+      {adminSelectedDoctor && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000, padding: '20px' }}>
+          <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '560px', borderRadius: '16px', padding: '28px', position: 'relative' }}>
+            <button onClick={() => setAdminSelectedDoctor(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer' }}>✕</button>
+            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase' }}>Doctor Shift Profile</span>
+            <h2 style={{ margin: '4px 0 2px 0', color: '#0f172a' }}>{adminSelectedDoctor.name}</h2>
+            <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold' }}>{adminSelectedDoctor.department} (ID: {adminSelectedDoctor.doctorId})</div>
+            <div style={{ marginTop: '14px', padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
+              📍 <strong>Location:</strong> {DEPARTMENT_LOCATIONS[adminSelectedDoctor.department]?.room} ({DEPARTMENT_LOCATIONS[adminSelectedDoctor.department]?.block})
+            </div>
+            <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', fontSize: '13px', color: '#15803d' }}>
+              ✅ <strong>Shift Status:</strong> Active on duty • Automated shortest-queue load balancing active.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DEDICATED LAPTOP WEBCAM / CAMERA CAPTURE MODAL */}
       {cameraModal.isOpen && (
@@ -2452,16 +2782,13 @@ function App() {
               Mandatory live photographic verification required to confirm physical handover & eliminate theft.
             </p>
 
-            {/* Video Viewfinder / Live Stream */}
             {!capturedPhotoPreview ? (
               <div>
                 <div style={{ position: 'relative', backgroundColor: '#0f172a', borderRadius: '12px', overflow: 'hidden', height: '280px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '14px', border: '2px solid #3b82f6' }}>
                   <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  
-                  {/* Viewfinder Target Box Overlay */}
                   <div style={{ position: 'absolute', top: '20px', left: '20px', right: '20px', bottom: '20px', border: '2px dashed rgba(255,255,255,0.7)', borderRadius: '10px', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <span style={{ backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '12px' }}>
-                      Position {cameraModal.purpose === 'pharmacy' ? 'Medicine Packet & ID' : cameraModal.purpose === 'lab' ? 'Sample Vial / Report Sheet' : 'Consumable Pack'} in Frame
+                      Position item in frame
                     </span>
                   </div>
                 </div>
@@ -2472,7 +2799,6 @@ function App() {
                   </div>
                 )}
 
-                {/* Camera Actions */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
                   <button 
                     onClick={snapWebcamPhoto}
@@ -2496,10 +2822,10 @@ function App() {
                   </label>
                 </div>
 
-                {/* 1-Click Fast Presets (To easily test without webcam) */}
+                {/* 1-Click Fast Presets */}
                 <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                   <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '6px' }}>
-                    ⚡ Instant 1-Click Medical Sample Presets (For Fast Testing):
+                    ⚡ Instant 1-Click Medical Sample Presets:
                   </span>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {cameraModal.purpose === 'pharmacy' && (
@@ -2535,7 +2861,6 @@ function App() {
 
               </div>
             ) : (
-              /* Photo Preview & Confirmation */
               <div>
                 <div style={{ textAlign: 'center', backgroundColor: '#0f172a', padding: '10px', borderRadius: '12px', marginBottom: '16px' }}>
                   <img src={capturedPhotoPreview} alt="Captured Proof" style={{ maxWidth: '100%', maxHeight: '280px', borderRadius: '8px', objectFit: 'contain' }} />
@@ -2564,11 +2889,11 @@ function App() {
         </div>
       )}
 
-      {/* INTERACTIVE CLINICAL DETAIL INSPECTION MODAL (WITH PHOTO PROOFS) */}
+      {/* INTERACTIVE CLINICAL DETAIL INSPECTION MODAL */}
       {selectedDetailItem && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, padding: '20px' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 13000, padding: '20px' }}>
           <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '640px', borderRadius: '16px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
-            <button onClick={() => setSelectedDetailItem(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+            <button onClick={() => setSelectedDetailItem(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '16px', cursor: 'pointer', color: '#64748b' }}>✕</button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
               <span style={{ fontSize: '24px' }}>{selectedDetailItem.icon || '📋'}</span>
@@ -2578,127 +2903,42 @@ function App() {
               </div>
             </div>
 
-            {/* Timestamp & Clinician Banner */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', backgroundColor: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
               <div>
                 <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Date & Time</span>
                 <strong style={{ fontSize: '13px', color: '#0f172a' }}>🕒 {formatDateTime(selectedDetailItem.timestamp)}</strong>
               </div>
               <div>
-                <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Authorizing Clinician / Staff</span>
-                <strong style={{ fontSize: '13px', color: '#2563eb' }}>👨‍⚕️ {selectedDetailItem.performedBy || selectedDetailItem.doctorName || 'Attending Physician'}</strong>
+                <span style={{ fontSize: '11px', color: '#64748b', display: 'block' }}>Authorizing Staff</span>
+                <strong style={{ fontSize: '13px', color: '#2563eb' }}>👨‍⚕️ {selectedDetailItem.performedBy || selectedDetailItem.doctorName || 'Attending Staff'}</strong>
               </div>
             </div>
 
-            {/* PHOTOGRAPHIC PROOF OF DELIVERY / HANDOVER (Zero Exploitation & Anti-Theft) */}
             {selectedDetailItem.photoProof && (
               <div style={{ backgroundColor: '#f0fdf4', border: '2px solid #86efac', borderRadius: '12px', padding: '16px', marginBottom: '18px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ fontSize: '18px' }}>📸</span>
-                    <strong style={{ color: '#15803d', fontSize: '14px' }}>Photographic Proof of Handover / Delivery Verified</strong>
+                    <strong style={{ color: '#15803d', fontSize: '14px' }}>Photographic Proof Verified</strong>
                   </div>
                   <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
                     ✓ Zero Exploitation Proof
                   </span>
                 </div>
-                <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#166534' }}>
-                  Captured at station counter / patient bedside to verify physical handover and eliminate middleman theft.
-                </p>
                 <div style={{ textAlign: 'center', backgroundColor: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
                   <img src={selectedDetailItem.photoProof} alt="Photographic Proof" style={{ maxWidth: '100%', maxHeight: '240px', borderRadius: '6px', objectFit: 'contain' }} />
                 </div>
               </div>
             )}
 
-            {/* Discharge Summary in Detail Modal */}
-            {selectedDetailItem.dischargeSummary && (
-              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '16px', marginBottom: '18px' }}>
-                <strong style={{ fontSize: '14px', color: '#15803d', display: 'block', marginBottom: '8px' }}>🏁 Outpatient Clinical Discharge Summary:</strong>
-                <div style={{ padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #dcfce7', fontSize: '14px', color: '#0f172a', lineHeight: '1.5' }}>
-                  {selectedDetailItem.dischargeSummary}
-                </div>
-                <div style={{ fontSize: '12px', color: '#166534', marginTop: '8px' }}>
-                  <strong>Classification:</strong> {selectedDetailItem.dischargeType || 'Routine Outpatient Completion'}
-                </div>
-                <div style={{ fontSize: '12px', color: '#2563eb', marginTop: '4px' }}>
-                  <strong>Follow-up Advice:</strong> {selectedDetailItem.followUpAdvice || 'Follow-up as needed.'}
-                </div>
-              </div>
-            )}
-
-            {/* Delivery Mode & Anti-Bribery Verification Notice */}
-            {selectedDetailItem.deliveryMode && (
-              <div style={{ backgroundColor: selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#fffbeb' : '#f0fdf4', border: `1px solid ${selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#fde68a' : '#bbf7d0'}`, padding: '14px', borderRadius: '10px', marginBottom: '18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '18px' }}>{selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '📄' : '⚡'}</span>
-                  <strong style={{ color: selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#92400e' : '#15803d', fontSize: '14px' }}>
-                    {selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? 'Physical Hard-Copy Collection Notice' : 'Digital Direct EHR Upload (Zero Bribery)'}
-                  </strong>
-                </div>
-                <p style={{ margin: 0, fontSize: '12px', color: selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? '#78350f' : '#166534', lineHeight: '1.4' }}>
-                  {selectedDetailItem.deliveryInstructions || (selectedDetailItem.deliveryMode === 'PHYSICAL_COUNTER' ? 'Present your Patient ID at Diagnostic Counter 1 (Room 105) to collect the printed diagnostic film.' : 'This report is digitally signed and uploaded to your EHR portal automatically, eliminating middleman bribery.')}
-                </p>
-              </div>
-            )}
-
-            {/* Test Findings & Reference Range (For Lab Reports) */}
-            {selectedDetailItem.clinicalFindings && (
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '18px' }}>
-                <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block', marginBottom: '8px' }}>🔬 Clinical Diagnostic Findings:</strong>
-                <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '14px', color: '#0f172a', lineHeight: '1.5' }}>
-                  {selectedDetailItem.clinicalFindings}
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-                  <strong>Biological Reference Interval:</strong> {selectedDetailItem.referenceRange || 'Within standard physiological ranges.'}
-                </div>
-                <div style={{ fontSize: '12px', color: '#16a34a', marginTop: '4px', fontWeight: 'bold' }}>
-                  ✅ Verified by Gandhi Central Pathology Laboratory (Room 105)
-                </div>
-              </div>
-            )}
-
-            {/* Medicines Breakdown Table (For Prescriptions) */}
-            {selectedDetailItem.medicines && selectedDetailItem.medicines.length > 0 && (
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', marginBottom: '18px' }}>
-                <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block', marginBottom: '10px' }}>💊 Prescribed Drug Schedule:</strong>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {selectedDetailItem.medicines.map((med, idx) => (
-                    <div key={idx} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <strong style={{ fontSize: '14px', color: '#0f172a' }}>{med.name}</strong>
-                        <div style={{ fontSize: '12px', color: '#475569', marginTop: '2px' }}>
-                          Dosage: <strong>{med.dosage}</strong> • Timing: {med.timing || 'After Food'} • Duration: {med.durationDays} Days
-                        </div>
-                      </div>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '6px', backgroundColor: med.isDispensed ? '#dcfce7' : '#fef3c7', color: med.isDispensed ? '#15803d' : '#b45309' }}>
-                        {med.isDispensed ? '✅ Dispensed' : '⏳ Ready at Counter #3'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '10px' }}>
-                  <strong>Doctor Instructions:</strong> {selectedDetailItem.notes || 'Take with warm water after meals.'}
-                </div>
-              </div>
-            )}
-
-            {/* Room & Physical Location */}
-            {(selectedDetailItem.room || selectedDetailItem.block) && (
-              <div style={{ padding: '12px 16px', backgroundColor: '#eff6ff', borderRadius: '10px', border: '1px solid #bfdbfe', marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <span style={{ fontSize: '11px', color: '#1e40af', fontWeight: 'bold' }}>PHYSICAL LOCATION</span>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#1d4ed8' }}>📍 {selectedDetailItem.room}</div>
-                  <div style={{ fontSize: '12px', color: '#475569' }}>{selectedDetailItem.block}</div>
-                </div>
-                <span style={{ fontSize: '12px', backgroundColor: 'white', padding: '4px 10px', borderRadius: '6px', border: '1px solid #bfdbfe', fontWeight: 'bold', color: '#1e40af' }}>
-                  Gandhi Hospital
-                </span>
+            {selectedDetailItem.details && (
+              <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '13px', color: '#0f172a' }}>
+                {selectedDetailItem.details}
               </div>
             )}
 
             <button onClick={() => setSelectedDetailItem(null)} style={{ width: '100%', padding: '12px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer' }}>
-              Close Detail View
+              Close View
             </button>
           </div>
         </div>
