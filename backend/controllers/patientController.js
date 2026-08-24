@@ -171,10 +171,14 @@ exports.sendOtp = async (req, res) => {
         const smsDelivery = await sendRealFast2SMS(patient.phoneNumber, smsOtpMessage);
 
         res.status(200).json({
-            message: `OTP dispatched via SMS to your mobile number (ending in ****${patient.phoneNumber.slice(-4)})!`,
+            message: `OTP dispatched to your mobile number +91 ${patient.phoneNumber}!`,
             phoneNumber: patient.phoneNumber,
             patientId: patient.patientId,
             mockOtpForTesting: otp,
+            whatsAppNotification: {
+                recipient: patient.phoneNumber,
+                message: `🔐 *Chikitsya Setu Security OTP*\nHello *${patient.name}*,\nYour 6-digit login OTP is: *${otp}* (Valid for 10 minutes).\n\n🆔 *Your Patient ID:* ${patient.patientId}\n🔑 *Your Passcode PIN:* ${patient.password}\n\nTrack your hospital file live: http://localhost:5173`
+            },
             smsNotification: {
                 recipient: patient.phoneNumber,
                 message: smsOtpMessage,

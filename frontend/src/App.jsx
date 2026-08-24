@@ -156,6 +156,11 @@ function App() {
   const [loginId, setLoginId] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [otpIdentifier, setOtpIdentifier] = useState('')
+  const [otpSent, setOtpSent] = useState(false)
+  const [enteredOtp, setEnteredOtp] = useState('')
+  const [otpInfo, setOtpInfo] = useState(null)
+  const [otpError, setOtpError] = useState('')
   const [patientFullFile, setPatientFullFile] = useState(null)
   const [patientTab, setPatientTab] = useState('overview')
   const [selectedDetailItem, setSelectedDetailItem] = useState(null)
@@ -741,6 +746,35 @@ function App() {
       setLoginPassword('')
     } catch (err) {
       setLoginError(err.response?.data?.message || 'Invalid credentials. Please verify your Patient ID and PIN.')
+    }
+  }
+
+  const handleSendOtp = async (e) => {
+    e.preventDefault()
+    setOtpError('')
+    try {
+      const res = await axios.post(`${API_BASE}/patients/send-otp`, { identifier: otpIdentifier })
+      setOtpSent(true)
+      setOtpInfo(res.data)
+      if (res.data.whatsAppNotification) showWhatsAppAlert(res.data.whatsAppNotification)
+    } catch (err) {
+      setOtpError(err.response?.data?.message || 'Failed to dispatch OTP. Please check the ID/Phone.')
+    }
+  }
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault()
+    setOtpError('')
+    try {
+      const res = await axios.post(`${API_BASE}/patients/verify-otp`, { identifier: otpIdentifier, otp: enteredOtp })
+      persistLogin('patient', res.data.patient)
+      await fetchPatientFullFile(res.data.patient.patientId)
+      await fetchPatientGrievances(res.data.patient.patientId)
+      setOtpIdentifier('')
+      setEnteredOtp('')
+      setOtpSent(false)
+    } catch (err) {
+      setOtpError(err.response?.data?.message || 'Invalid or expired OTP.')
     }
   }
 
@@ -2482,16 +2516,86 @@ function App() {
                     <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '13px' }}>Create new outpatient record with optional live photo snapshot.</p>
 
                     {opTicket && (
-                      <div style={{ marginBottom: '20px', padding: '16px', backgroundColor: '#ecfdf5', borderRadius: '16px', border: '1px solid #a7f3d0' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                          {renderPatientAvatar(opTicket.patient, 40, '2px solid #047857')}
-                          <div>
-                            <strong style={{ color: '#065f46', fontSize: '14px' }}>Registration Successful!</strong>
-                            <div style={{ fontSize: '12px', color: '#047857' }}>ID: <strong>{opTicket.credentials?.patientId}</strong> | PIN: <strong>{opTicket.credentials?.password}</strong></div>
+                      <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#ecfdf5', borderRadius: '18px', border: '1.5px solid #6ee7b7', boxShadow: '0 8px 24px rgba(16, 185, 129, 0.15)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {renderPatientAvatar(opTicket.patient, 46, '2px solid #047857')}
+                            <div>
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: '800', textTransform: 'uppercase' }}>✅ Patient Registered Successfully</span>
+                              <h3 style={{ margin: '2px 0 0 0', fontSize: '18px', color: '#065f46', fontWeight: '800' }}>{opTicket.patient?.name}</h3>
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <span style={{ padding: '4px 12px', backgroundColor: '#a7f3d0', color: '#065f46', borderRadius: '9999px', fontSize: '12px', fontWeight: '800' }}>
+                              Room 102
+                            </span>
                           </div>
                         </div>
-                        <div style={{ fontSize: '12px', color: '#065f46' }}>
-                          Assigned to: <strong>{opTicket.assignedTo?.doctorName}</strong> (Room 102)
+
+                        {/* Credentials Display Box */}
+                        <div style={{ backgroundColor: '#ffffff', padding: '14px', borderRadius: '14px', border: '1px solid #a7f3d0', marginBottom: '14px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div>
+                              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Patient ID:</span>
+                              <div style={{ fontSize: '16px', fontWeight: '800', color: '#1e3a8a' }}>{opTicket.credentials?.patientId}</div>
+                            </div>
+                            <div>
+                              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '700' }}>Login Passcode PIN:</span>
+                              <div style={{ fontSize: '16px', fontWeight: '800', color: '#047857' }}>{opTicket.credentials?.password}</div>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#475569', marginTop: '8px', borderTop: '1px solid #f1f5f9', paddingTop: '6px' }}>
+                            👨‍⚕️ Assigned Doctor: <strong>{opTicket.assignedTo?.doctorName}</strong> (Queue Position: #{opTicket.assignedTo?.currentQueue})
+                          </div>
+                        </div>
+
+                        {/* WhatsApp Action Buttons */}
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const text = `🏥 *Chikitsya Setu O/P Registration*\nHello *${opTicket.patient?.name}*,\nYour digital OPD token has been generated.\n\n🆔 *Patient ID:* ${opTicket.credentials?.patientId}\n🔑 *Login Passcode PIN:* ${opTicket.credentials?.password}\n👨‍⚕️ *Assigned Physician:* ${opTicket.assignedTo?.doctorName} (Room 102)\n\n👉 Track your live queue & digital reports: http://localhost:5173`;
+                              window.open(`https://api.whatsapp.com/send?phone=91${opTicket.patient?.phoneNumber}&text=${encodeURIComponent(text)}`, '_blank');
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: '10px 16px',
+                              backgroundColor: '#25D366',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '9999px',
+                              fontSize: '12.5px',
+                              fontWeight: '800',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '6px',
+                              boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)'
+                            }}>
+                            <span>📲</span> Send to WhatsApp (+91 {opTicket.patient?.phoneNumber})
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const text = `🏥 *Chikitsya Setu O/P Registration*\nHello *${opTicket.patient?.name}*,\nYour digital OPD token has been generated.\n\n🆔 *Patient ID:* ${opTicket.credentials?.patientId}\n🔑 *Login Passcode PIN:* ${opTicket.credentials?.password}\n👨‍⚕️ *Assigned Physician:* ${opTicket.assignedTo?.doctorName} (Room 102)\n\n👉 Track your live queue & digital reports: http://localhost:5173`;
+                              navigator.clipboard.writeText(text);
+                              alert('✅ WhatsApp message copied to clipboard!');
+                            }}
+                            style={{
+                              padding: '10px 16px',
+                              backgroundColor: '#ffffff',
+                              color: '#065f46',
+                              border: '1px solid #a7f3d0',
+                              borderRadius: '9999px',
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}>
+                            📋 Copy Message
+                          </button>
                         </div>
                       </div>
                     )}
@@ -2935,6 +3039,7 @@ function App() {
               <div>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
                   <button onClick={() => setPatientLoginMode('password')} style={{ flex: 1, padding: '6px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '9999px', backgroundColor: patientLoginMode === 'password' ? '#070e1e' : '#f8fafc', color: patientLoginMode === 'password' ? 'white' : '#334155', cursor: 'pointer', fontWeight: '700' }}>PIN Login</button>
+                  <button onClick={() => setPatientLoginMode('otp')} style={{ flex: 1.4, padding: '6px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '9999px', backgroundColor: patientLoginMode === 'otp' ? '#070e1e' : '#f8fafc', color: patientLoginMode === 'otp' ? 'white' : '#334155', cursor: 'pointer', fontWeight: '700' }}>📲 WhatsApp OTP / PIN</button>
                   <button onClick={() => setPatientLoginMode('quick')} style={{ flex: 1, padding: '6px', fontSize: '11px', border: '1px solid #cbd5e1', borderRadius: '9999px', backgroundColor: patientLoginMode === 'quick' ? '#070e1e' : '#f8fafc', color: patientLoginMode === 'quick' ? 'white' : '#334155', cursor: 'pointer', fontWeight: '700' }}>⚡ Quick Select</button>
                 </div>
 
@@ -2945,6 +3050,36 @@ function App() {
                     {loginError && <div style={{ color: '#be123c', fontSize: '12px', marginBottom: '8px' }}>{loginError}</div>}
                     <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#1e3a8a', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px' }}>Log In ➔</button>
                   </form>
+                )}
+
+                {patientLoginMode === 'otp' && (
+                  <div>
+                    {!otpSent ? (
+                      <form onSubmit={handleSendOtp}>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Registered Mobile or Patient ID:</label>
+                        <input required type="text" placeholder="e.g. 9876543210 or PT-1001" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={otpIdentifier} onChange={e => setOtpIdentifier(e.target.value)} />
+                        {otpError && <div style={{ color: '#be123c', fontSize: '12px', marginBottom: '8px' }}>{otpError}</div>}
+                        <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#25D366', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                          <span>📲</span> Send Login PIN & OTP to WhatsApp ➔
+                        </button>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleVerifyOtp}>
+                        <div style={{ backgroundColor: '#ecfdf5', padding: '10px', borderRadius: '10px', border: '1px solid #a7f3d0', fontSize: '12px', color: '#065f46', marginBottom: '10px' }}>
+                          ✅ OTP and credentials dispatched to WhatsApp / SMS!
+                        </div>
+                        <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Enter 6-Digit OTP:</label>
+                        <input required type="text" placeholder="e.g. 123456" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={enteredOtp} onChange={e => setEnteredOtp(e.target.value)} />
+                        {otpError && <div style={{ color: '#be123c', fontSize: '12px', marginBottom: '8px' }}>{otpError}</div>}
+                        <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#047857', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px', marginBottom: '8px' }}>
+                          ✅ Verify OTP & Enter Portal ➔
+                        </button>
+                        <button type="button" onClick={() => setOtpSent(false)} style={{ width: '100%', background: 'none', border: 'none', color: '#64748b', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}>
+                          Resend to another number
+                        </button>
+                      </form>
+                    )}
+                  </div>
                 )}
 
                 {patientLoginMode === 'quick' && (
