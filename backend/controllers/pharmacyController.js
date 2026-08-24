@@ -1,4 +1,5 @@
 const Prescription = require('../models/Prescription');
+const Doctor = require('../models/Doctor');
 
 // 1. Get all pending prescriptions for pharmacy queue
 exports.getPrescriptions = async (req, res) => {
@@ -10,21 +11,27 @@ exports.getPrescriptions = async (req, res) => {
     }
 };
 
-// 2. Doctor creates a digital prescription
+// 2. Doctor creates a digital prescription with doctor name & department
 exports.createPrescription = async (req, res) => {
     try {
         const { patientId, doctorId, medicines, notes } = req.body;
+
+        const doc = await Doctor.findOne({ doctorId });
+        const docName = doc ? doc.name : 'Physician';
+        const docDept = doc ? doc.department : 'General Medicine';
         
         const newPrescription = new Prescription({
             patientId,
             doctorId,
+            doctorName: docName,
+            doctorDepartment: docDept,
             medicines: medicines || [{ name: 'Paracetamol 650mg', dosage: '1-0-1 after food', durationDays: 3 }],
-            notes: notes || 'Drink warm fluids.'
+            notes: notes || 'Take prescribed medicines with warm water after meals.'
         });
         await newPrescription.save();
 
         res.status(201).json({
-            message: "Prescription dispatched to Pharmacy queue!",
+            message: `Prescription created by ${docName} (${docDept}) and dispatched to Pharmacy Counter #3!`,
             prescription: newPrescription
         });
     } catch (error) {
@@ -42,6 +49,7 @@ exports.dispenseMedicines = async (req, res) => {
             {
                 status: 'COMPLETELY_DISPENSED',
                 dispensedAt: new Date(),
+                dispensedByStaff: 'Duty Pharmacist (Counter #3)',
                 'medicines.$[].isDispensed': true
             },
             { new: true }

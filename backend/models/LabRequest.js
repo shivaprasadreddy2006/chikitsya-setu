@@ -3,10 +3,20 @@ const mongoose = require('mongoose');
 const labRequestSchema = new mongoose.Schema({
     patientId: { type: String, required: true },
     doctorId: { type: String, required: true },
+    doctorName: { type: String },
+    doctorDepartment: { type: String },
     
     testName: { type: String, required: true },
     labRoom: { type: String, required: true },
     notes: { type: String },
+    
+    // Delivery mode: Digital vs Physical Hard-Copy
+    deliveryMode: { 
+        type: String, 
+        enum: ['DIGITAL_EHR', 'PHYSICAL_COUNTER', 'BOTH'], 
+        default: 'DIGITAL_EHR' 
+    },
+    deliveryInstructions: { type: String },
     
     // Status tracker
     status: { 
@@ -17,7 +27,8 @@ const labRequestSchema = new mongoose.Schema({
     
     // Results & report details
     findings: { type: String },
-    reportUrl: { type: String }, // Digital report file/link
+    referenceRange: { type: String, default: 'Biological reference intervals within normal clinical tolerance.' },
+    reportUrl: { type: String },
     
     // SLA and Accountability timestamps
     sampleCollectedAt: { type: Date },

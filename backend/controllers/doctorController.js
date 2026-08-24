@@ -59,20 +59,33 @@ exports.getWaitingPatients = async (req, res) => {
     }
 };
 
-// 3. Doctor orders a test -> dispatched to Lab monitor
+// 3. Doctor orders a test -> dispatched to Lab monitor with delivery mode & doctor name
 exports.orderLabTest = async (req, res) => {
     try {
-        const { doctorId, patientId, testName, labRoom, notes } = req.body;
+        const { doctorId, patientId, testName, labRoom, notes, deliveryMode } = req.body;
 
         if (!doctorId || !patientId || !testName || !labRoom) {
             return res.status(400).json({ message: "All fields (doctorId, patientId, testName, labRoom) are required." });
         }
 
+        const doc = await Doctor.findOne({ doctorId });
+        const docName = doc ? doc.name : 'Physician';
+        const docDept = doc ? doc.department : 'General Medicine';
+
+        const finalDeliveryMode = deliveryMode || 'DIGITAL_EHR';
+        const deliveryInstructions = finalDeliveryMode === 'DIGITAL_EHR'
+            ? '⚡ Instant direct digital report will be published to your Patient Portal with Zero Bribery verification.'
+            : '📄 Hard copy report will be available at Diagnostic Counter #1 (Room 105) by presenting your Patient ID.';
+
         const newRequest = new LabRequest({
             patientId,
             doctorId,
+            doctorName: docName,
+            doctorDepartment: docDept,
             testName,
             labRoom,
+            deliveryMode: finalDeliveryMode,
+            deliveryInstructions,
             notes: notes || ''
         });
         await newRequest.save();
@@ -89,7 +102,7 @@ exports.orderLabTest = async (req, res) => {
         );
 
         res.status(201).json({ 
-            message: `Lab request for ${testName} successfully dispatched to ${labRoom}!`, 
+            message: `Lab test "${testName}" ordered by ${docName} (${docDept}) and dispatched to ${labRoom}! [Delivery: ${finalDeliveryMode}]`, 
             labRequest: newRequest,
             patient: updatedPatient
         });
@@ -103,6 +116,9 @@ exports.completeConsultation = async (req, res) => {
     try {
         const { doctorId, patientId } = req.body;
 
+        const doc = await Doctor.findOne({ doctorId });
+        const docName = doc ? doc.name : 'Physician';
+
         const updatedPatient = await Patient.findOneAndUpdate(
             { patientId },
             { currentStatus: 'COMPLETED' },
@@ -115,7 +131,7 @@ exports.completeConsultation = async (req, res) => {
         );
 
         res.status(200).json({
-            message: "Consultation completed and patient advised.",
+            message: `Consultation completed by ${docName} and outpatient file closed.`,
             patient: updatedPatient
         });
     } catch (error) {
