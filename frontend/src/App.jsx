@@ -9,12 +9,12 @@ function App() {
 
   // Login Modal
   const [showLoginModal, setShowLoginModal] = useState(false)
-  const [loginRole, setLoginRole] = useState('op-desk') // Default to O/P Desk as requested
+  const [loginRole, setLoginRole] = useState('op-desk')
   const [currentUser, setCurrentUser] = useState(null)
 
   // ---------- STAFF / OP DESK LOGIN STATE ----------
-  const [opStaffUser, setOpStaffUser] = useState('op_staff')
-  const [opStaffPass, setOpStaffPass] = useState('gandhi2026')
+  const [opStaffUser, setOpStaffUser] = useState('')
+  const [opStaffPass, setOpStaffPass] = useState('')
   const [staffLoginError, setStaffLoginError] = useState('')
 
   // ---------- PATIENT STATE ----------
@@ -147,8 +147,10 @@ function App() {
       setCurrentUser({ role: 'op-desk', data: { name: 'O/P Receptionist (Desk #1)', staffId: 'STAFF-OP-01' } })
       setActiveView('op-desk')
       setShowLoginModal(false)
+      setOpStaffUser('')
+      setOpStaffPass('')
     } else {
-      setStaffLoginError('Invalid Staff ID or Password. Default: op_staff / gandhi2026')
+      setStaffLoginError('Invalid Staff ID or Password. Access restricted to authorized personnel.')
     }
   }
 
@@ -413,7 +415,7 @@ function App() {
       {/* MAIN BODY CONTENT */}
       <main style={{ flex: 1, padding: '36px 20px', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
 
-        {/* 1. HOME LANDING VIEW (VISUAL PRESENTATION OF PROJECT) */}
+        {/* 1. HOME LANDING VIEW (HOSPITAL INFORMATION & VISUAL PRESENTATION) */}
         {activeView === 'home' && (
           <div style={{ width: '100%', maxWidth: '1080px' }}>
             
@@ -424,25 +426,32 @@ function App() {
               </div>
               
               <h2 style={{ fontSize: '36px', color: '#0f172a', margin: '0 0 16px 0', fontWeight: '800', lineHeight: '1.2' }}>
-                Digitizing Dignity & Transparency in Public Healthcare
+                Gandhi Hospital Public Healthcare Transparency Engine
               </h2>
               
-              <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '780px', margin: '0 auto 28px auto', lineHeight: '1.6' }}>
-                A unified MERN-stack transparency platform built to resolve long standing issues at government hospitals: eliminating doctor avoidance, eradicating laboratory bribes, and micro-tracking surgical consumables in real time.
+              <p style={{ fontSize: '16px', color: '#64748b', maxWidth: '780px', margin: '0 auto 24px auto', lineHeight: '1.6' }}>
+                Gandhi Hospital (Secunderabad) is a premier tertiary government hospital serving over 3,500 patients daily. Chikitsya Setu provides an end-to-end digital accountability ecosystem to eradicate queue manipulation, eliminate illegal diagnostic charges, and track every single medical consumable with 100% transparency.
               </p>
 
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
-                <button onClick={() => { setLoginRole('op-desk'); setShowLoginModal(true); }} style={{ padding: '14px 32px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 4px 16px rgba(15, 23, 42, 0.2)' }}>
-                  🎫 Open O/P Staff Desk ➔
-                </button>
-                <button onClick={() => setShowLoginModal(true)} style={{ padding: '14px 28px', backgroundColor: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '15px', fontWeight: '600', cursor: 'pointer' }}>
-                  Explore Other Portals
-                </button>
+              {/* Hospital Key Badges */}
+              <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '32px' }}>
+                <span style={{ padding: '8px 16px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                  🏥 1,200+ Inpatient Bed Capacity
+                </span>
+                <span style={{ padding: '8px 16px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                  👥 3,500+ Daily Outpatients
+                </span>
+                <span style={{ padding: '8px 16px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#334155' }}>
+                  🚨 24/7 Emergency & Casualty
+                </span>
+                <span style={{ padding: '8px 16px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', fontSize: '13px', fontWeight: '600', color: '#166534' }}>
+                  ✅ 100% Free Public Healthcare Policy
+                </span>
               </div>
 
               {/* Live Statistics */}
               {hospitalStats && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginTop: '40px', textAlign: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', textAlign: 'center' }}>
                   <div style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                     <div style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a' }}>{hospitalStats.totalPatients}</div>
                     <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px', fontWeight: '600' }}>Patients Registered</div>
@@ -461,6 +470,33 @@ function App() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Department Capabilities Overview */}
+            <div style={{ backgroundColor: 'white', padding: '32px 36px', borderRadius: '24px', boxShadow: '0 6px 24px rgba(0,0,0,0.03)', border: '1px solid #e2e8f0', marginBottom: '32px' }}>
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', color: '#0f172a' }}>
+                🏥 Active Super-Specialty Departments on Shift
+              </h3>
+              <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 20px 0' }}>
+                Load-balanced clinical desks providing specialized diagnosis and outpatient care with zero wait-time inflation.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+                {[
+                  { name: 'General Medicine', desc: 'Comprehensive fever, infection & acute illness triage', room: 'OPD Block A (Rooms 101-105)' },
+                  { name: 'Cardiology', desc: 'ECG, 2D-Echo & hypertension management', room: 'Specialty Wing (Room 201)' },
+                  { name: 'Orthopedics', desc: 'Fracture management, trauma & joint care', room: 'Trauma Wing (Room 204)' },
+                  { name: 'Pulmonology', desc: 'Respiratory care, asthma & chest diagnostics', room: 'Chest Clinic (Room 302)' },
+                  { name: 'Nephrology', desc: 'Renal clearance, dialysis & electrolyte analysis', room: 'Dialysis Unit (Room 401)' },
+                  { name: 'General Surgery', desc: 'Pre-op assessments, wound care & emergency surgery', room: 'Surgical Block (Room 108)' }
+                ].map((dept, i) => (
+                  <div key={i} style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <strong style={{ fontSize: '15px', color: '#0f172a', display: 'block', marginBottom: '4px' }}>{dept.name}</strong>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 8px 0', lineHeight: '1.4' }}>{dept.desc}</p>
+                    <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold' }}>📍 {dept.room}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Visual Workflow Infographic */}
@@ -1094,17 +1130,12 @@ function App() {
               ))}
             </div>
 
-            {/* O/P Staff Login Form (Requested Feature) */}
+            {/* O/P Staff Login Form */}
             {loginRole === 'op-desk' && (
               <form onSubmit={handleOpStaffLogin}>
-                <div style={{ backgroundColor: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '14px', fontSize: '12px', color: '#64748b' }}>
-                  💡 <strong>Default Staff Credentials:</strong><br />
-                  User ID: <code style={{ color: '#0f172a', fontWeight: 'bold' }}>op_staff</code> | Password: <code style={{ color: '#0f172a', fontWeight: 'bold' }}>gandhi2026</code>
-                </div>
-
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ fontSize: '12px', fontWeight: '600', display: 'block', marginBottom: '4px' }}>Staff User ID</label>
-                  <input required type="text" placeholder="op_staff" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opStaffUser} onChange={e => setOpStaffUser(e.target.value)} />
+                  <input required type="text" placeholder="Enter Staff ID" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} value={opStaffUser} onChange={e => setOpStaffUser(e.target.value)} />
                 </div>
 
                 <div style={{ marginBottom: '16px' }}>
