@@ -207,6 +207,7 @@ function App() {
   // ---------- ADMIN / OVERSIGHT STATE ----------
   const [hospitalStats, setHospitalStats] = useState(null)
   const [hospitalAuditTrail, setHospitalAuditTrail] = useState(null)
+  const [adminActiveTab, setAdminActiveTab] = useState('ledger') // 'ledger' | 'photos' | 'doctors' | 'wards'
   const [auditFilterType, setAuditFilterType] = useState('ALL')
   const [auditSearchQuery, setAuditSearchQuery] = useState('')
 
@@ -234,6 +235,8 @@ function App() {
     if (activeView === 'admin') {
       fetchHospitalStats()
       fetchHospitalAuditTrail()
+      fetchDoctors()
+      fetchAdmissions()
     }
     if (activeView === 'patient' && currentUser?.role === 'patient' && currentUser.data?.patientId) {
       fetchPatientFullFile(currentUser.data.patientId)
@@ -687,6 +690,9 @@ function App() {
   const activeAdmittedList = admissionsList.filter(a => a.status === 'ADMITTED')
   const dischargedAdmittedList = admissionsList.filter(a => a.status === 'DISCHARGED')
   const displayedWardList = wardViewFilter === 'admitted' ? activeAdmittedList : dischargedAdmittedList
+
+  // All logs with attached photo proofs for Admin Photo Gallery
+  const allLogsWithPhotos = (hospitalAuditTrail?.allLogs || []).filter(l => Boolean(l.photoProof))
 
   // Filter Admin Audit Trail
   const filteredAuditLogs = (hospitalAuditTrail?.allLogs || []).filter(log => {
@@ -2064,139 +2070,362 @@ function App() {
           </div>
         )}
 
-        {/* 8. COMPREHENSIVE HOSPITAL ADMINISTRATION & EVERY DETAIL AUDIT TRAIL (WITH PHOTO AUDIT) */}
+        {/* 8. EXECUTIVE HOSPITAL ADMINISTRATION & VIGILANCE CONSOLE (CLEAN & STRUCTURED) */}
         {activeView === 'admin' && currentUser?.role === 'admin' && (
-          <div style={{ width: '100%', maxWidth: '1040px' }}>
-            <div style={{ backgroundColor: 'white', padding: '28px 36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <h2 style={{ margin: 0, color: '#0f172a' }}>📊 Hospital Administration & Full System Audit Trail</h2>
-                <button onClick={fetchHospitalAuditTrail} style={{ padding: '8px 14px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                  🔄 Refresh Live Logs
-                </button>
-              </div>
-              <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>
-                Complete live stream of every single event in Gandhi Hospital with exact Date & Time timestamps and Photo Proof verification.
-              </p>
-
-              {/* Date-wise Activity Breakdown Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', marginBottom: '24px' }}>
-                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                  <span style={{ fontSize: '11px', color: '#1e40af', fontWeight: 'bold', textTransform: 'uppercase' }}>Total System Events</span>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#1d4ed8', fontSize: '24px' }}>{hospitalAuditTrail?.totalEvents || 0}</h3>
-                  <span style={{ fontSize: '11px', color: '#16a34a' }}>Logged in digital ledger</span>
+          <div style={{ width: '100%', maxWidth: '1060px' }}>
+            
+            {/* Top Clean Executive Header */}
+            <div style={{ backgroundColor: 'white', padding: '24px 32px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h2 style={{ margin: 0, color: '#0f172a', fontSize: '22px', fontWeight: '800' }}>📊 Hospital Administration Console</h2>
+                  <span style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>● Live Sync Active</span>
                 </div>
-
-                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                  <span style={{ fontSize: '11px', color: '#15803d', fontWeight: 'bold', textTransform: 'uppercase' }}>Registrations</span>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#16a34a', fontSize: '24px' }}>{hospitalStats?.totalPatients || 0}</h3>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>With shortest-queue doc</span>
-                </div>
-
-                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
-                  <span style={{ fontSize: '11px', color: '#92400e', fontWeight: 'bold', textTransform: 'uppercase' }}>Diagnostic Labs</span>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#b45309', fontSize: '24px' }}>{hospitalStats?.completedReports || 0}</h3>
-                  <span style={{ fontSize: '11px', color: '#16a34a' }}>100% Zero bribery verified</span>
-                </div>
-
-                <div style={{ padding: '16px', borderRadius: '10px', backgroundColor: '#faf5ff', border: '1px solid #e9d5ff' }}>
-                  <span style={{ fontSize: '11px', color: '#7e22ce', fontWeight: 'bold', textTransform: 'uppercase' }}>Active Inpatients</span>
-                  <h3 style={{ margin: '4px 0 0 0', color: '#9333ea', fontSize: '24px' }}>{hospitalStats?.activeAdmissions || 0}</h3>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>Anti-theft tracked beds</span>
-                </div>
+                <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '13px' }}>
+                  Gandhi Hospital Executive Vigilance • Complete Zero-Neglect & Anti-Theft Oversight
+                </p>
               </div>
 
-              {/* Filter and Search Bar for Audit Trail */}
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  placeholder="Search patient, ID, doctor, medicine, test name, or staff..."
-                  style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
-                  value={auditSearchQuery}
-                  onChange={e => setAuditSearchQuery(e.target.value)}
-                />
+              <button 
+                onClick={() => {
+                  fetchHospitalStats()
+                  fetchHospitalAuditTrail()
+                  fetchDoctors()
+                  fetchAdmissions()
+                }} 
+                style={{ padding: '9px 18px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🔄</span> Refresh Live Data
+              </button>
+            </div>
 
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  {['ALL', 'REGISTRATION', 'REFERRAL', 'DISCHARGE', 'LAB', 'PRESCRIPTION', 'ADMISSION'].map(type => (
-                    <button
-                      key={type}
-                      onClick={() => setAuditFilterType(type)}
-                      style={{
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        backgroundColor: auditFilterType === type ? '#0f172a' : '#f1f5f9',
-                        color: auditFilterType === type ? 'white' : '#475569',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer'
-                      }}>
-                      {type}
-                    </button>
-                  ))}
-                </div>
+            {/* 4 Clean Key Metrics */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Registered Patients</span>
+                <div style={{ fontSize: '26px', fontWeight: '800', color: '#0f172a', marginTop: '4px' }}>{hospitalStats?.totalPatients || 0}</div>
+                <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px', fontWeight: '600' }}>✓ Load-Balanced Triage</div>
               </div>
 
-              {/* Comprehensive Live Audit Log Table with Exact Date & Time and Click-to-View Photos */}
-              <div style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 2fr 1.2fr 1.2fr', backgroundColor: '#f8fafc', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', fontSize: '12px', color: '#475569' }}>
-                  <span>EVENT TYPE & PATIENT</span>
-                  <span>DESCRIPTION / CLINICAL ACTION</span>
-                  <span>PERFORMED BY</span>
-                  <span style={{ textAlign: 'right' }}>DATE & TIME</span>
-                </div>
+              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Doctors On Duty</span>
+                <div style={{ fontSize: '26px', fontWeight: '800', color: '#2563eb', marginTop: '4px' }}>{doctorsList.length}</div>
+                <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px', fontWeight: '600' }}>Across 6 Departments</div>
+              </div>
 
-                <div style={{ maxHeight: '550px', overflowY: 'auto' }}>
-                  {filteredAuditLogs.length === 0 ? (
-                    <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8' }}>No matching audit records found.</div>
-                  ) : (
-                    filteredAuditLogs.map((log, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1.4fr 2fr 1.2fr 1.2fr',
-                          padding: '14px 16px',
-                          borderBottom: idx !== filteredAuditLogs.length - 1 ? '1px solid #f1f5f9' : 'none',
-                          fontSize: '13px',
-                          alignItems: 'center',
-                          backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfcfd'
-                        }}>
-                        <div>
-                          <strong style={{ color: log.color, display: 'block', fontSize: '13px' }}>{log.title}</strong>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>{log.patientId}</span>
-                        </div>
+              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Lab Diagnostics</span>
+                <div style={{ fontSize: '26px', fontWeight: '800', color: '#d97706', marginTop: '4px' }}>{hospitalStats?.completedReports || 0}</div>
+                <div style={{ fontSize: '11px', color: '#d97706', marginTop: '2px', fontWeight: '600' }}>100% Free Public EHR</div>
+              </div>
 
-                        <div style={{ color: '#334155', fontSize: '12px', lineHeight: '1.4' }}>
-                          <div>{log.details}</div>
-                          {log.photoProof && (
-                            <button
-                              onClick={() => setSelectedDetailItem({
-                                type: log.type,
-                                stage: log.title,
-                                performedBy: log.actor,
-                                timestamp: log.timestamp,
-                                details: log.details,
-                                photoProof: log.photoProof
-                              })}
-                              style={{ marginTop: '4px', padding: '3px 8px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <span>📸</span> Inspect Photo Proof
-                            </button>
-                          )}
-                        </div>
-
-                        <div style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
-                          {log.actor}
-                        </div>
-
-                        <div style={{ textAlign: 'right', fontSize: '12px', color: '#2563eb', fontWeight: 'bold' }}>
-                          🕒 {formatDateTime(log.timestamp)}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+              <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase' }}>Verified Photo Proofs</span>
+                <div style={{ fontSize: '26px', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>{allLogsWithPhotos.length}</div>
+                <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '2px', fontWeight: '600' }}>✓ Anti-Theft Handover Evidence</div>
               </div>
             </div>
+
+            {/* Clean Main Tab Navigation */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0', paddingBottom: '12px', marginBottom: '20px' }}>
+              <button 
+                onClick={() => setAdminActiveTab('ledger')}
+                style={{ 
+                  padding: '9px 18px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  backgroundColor: adminActiveTab === 'ledger' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'ledger' ? 'white' : '#475569', 
+                  fontWeight: 'bold', 
+                  fontSize: '13px', 
+                  cursor: 'pointer' 
+                }}>
+                📋 Full System Event Ledger ({filteredAuditLogs.length})
+              </button>
+
+              <button 
+                onClick={() => setAdminActiveTab('photos')}
+                style={{ 
+                  padding: '9px 18px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  backgroundColor: adminActiveTab === 'photos' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'photos' ? 'white' : '#475569', 
+                  fontWeight: 'bold', 
+                  fontSize: '13px', 
+                  cursor: 'pointer' 
+                }}>
+                📸 Photo Proof Audit Gallery ({allLogsWithPhotos.length})
+              </button>
+
+              <button 
+                onClick={() => setAdminActiveTab('doctors')}
+                style={{ 
+                  padding: '9px 18px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  backgroundColor: adminActiveTab === 'doctors' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'doctors' ? 'white' : '#475569', 
+                  fontWeight: 'bold', 
+                  fontSize: '13px', 
+                  cursor: 'pointer' 
+                }}>
+                👨‍⚕️ Doctors & Department Shifts ({doctorsList.length})
+              </button>
+
+              <button 
+                onClick={() => setAdminActiveTab('wards')}
+                style={{ 
+                  padding: '9px 18px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  backgroundColor: adminActiveTab === 'wards' ? '#0f172a' : '#f1f5f9', 
+                  color: adminActiveTab === 'wards' ? 'white' : '#475569', 
+                  fontWeight: 'bold', 
+                  fontSize: '13px', 
+                  cursor: 'pointer' 
+                }}>
+                🛏️ Inpatient Bed & Consumables Summary
+              </button>
+            </div>
+
+            {/* TAB 1: STRUCTURED EVENT LEDGER */}
+            {adminActiveTab === 'ledger' && (
+              <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
+                
+                {/* Search & Filter Controls */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px', flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search patient, ID, doctor, medicine, or staff..."
+                    style={{ flex: 1, minWidth: '260px', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px' }}
+                    value={auditSearchQuery}
+                    onChange={e => setAuditSearchQuery(e.target.value)}
+                  />
+
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {[
+                      { key: 'ALL', label: 'All' },
+                      { key: 'REGISTRATION', label: 'Registrations' },
+                      { key: 'REFERRAL', label: 'Referrals' },
+                      { key: 'LAB', label: 'Labs' },
+                      { key: 'PRESCRIPTION', label: 'Prescriptions' },
+                      { key: 'ADMISSION', label: 'Wards' },
+                      { key: 'DISCHARGE', label: 'Discharges' }
+                    ].map(f => (
+                      <button
+                        key={f.key}
+                        onClick={() => setAuditFilterType(f.key)}
+                        style={{
+                          padding: '7px 12px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          backgroundColor: auditFilterType === f.key ? '#0f172a' : '#f1f5f9',
+                          color: auditFilterType === f.key ? 'white' : '#475569',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}>
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Clean, Structured Table */}
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontSize: '12px' }}>
+                        <th style={{ padding: '12px 16px' }}>EVENT & PATIENT</th>
+                        <th style={{ padding: '12px 16px' }}>CLINICAL ACTION & DETAILS</th>
+                        <th style={{ padding: '12px 16px' }}>AUTHORIZING STAFF</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>DATE & TIME</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAuditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} style={{ padding: '30px', textAlign: 'center', color: '#94a3b8' }}>
+                            No matching hospital audit records found.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredAuditLogs.map((log, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfcfd' }}>
+                            <td style={{ padding: '14px 16px', verticalAlign: 'top', width: '25%' }}>
+                              <strong style={{ color: log.color, display: 'block', fontSize: '13px' }}>{log.title}</strong>
+                              <span style={{ fontSize: '12px', color: '#64748b' }}>{log.patientId}</span>
+                            </td>
+
+                            <td style={{ padding: '14px 16px', verticalAlign: 'top', color: '#334155', lineHeight: '1.4' }}>
+                              <div>{log.details}</div>
+                              {log.photoProof && (
+                                <button
+                                  onClick={() => setSelectedDetailItem({
+                                    type: log.type,
+                                    stage: log.title,
+                                    performedBy: log.actor,
+                                    timestamp: log.timestamp,
+                                    details: log.details,
+                                    photoProof: log.photoProof
+                                  })}
+                                  style={{ marginTop: '6px', padding: '3px 8px', backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <span>📸</span> Inspect Photo Proof
+                                </button>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '14px 16px', verticalAlign: 'top', color: '#475569', fontWeight: '600', width: '20%' }}>
+                              {log.actor}
+                            </td>
+
+                            <td style={{ padding: '14px 16px', verticalAlign: 'top', textAlign: 'right', color: '#2563eb', fontWeight: 'bold', fontSize: '12px', width: '20%' }}>
+                              🕒 {formatDateTime(log.timestamp)}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB 2: PHOTO PROOF AUDIT GALLERY */}
+            {adminActiveTab === 'photos' && (
+              <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: '#0f172a', fontSize: '16px' }}>📸 Visual Photographic Handover Evidence</h3>
+                    <p style={{ margin: '2px 0 0 0', color: '#64748b', fontSize: '12px' }}>Permanent photo logs captured during physical dispensations, sample collections, and bedside administration.</p>
+                  </div>
+                  <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>
+                    {allLogsWithPhotos.length} Verified Photos
+                  </span>
+                </div>
+
+                {allLogsWithPhotos.length === 0 ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                    No photos captured yet. Staff will upload photos when dispensing medicines, collecting samples, or administering supplies.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    {allLogsWithPhotos.map((item, idx) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => setSelectedDetailItem({
+                          type: item.type,
+                          stage: item.title,
+                          performedBy: item.actor,
+                          timestamp: item.timestamp,
+                          details: item.details,
+                          photoProof: item.photoProof
+                        })}
+                        style={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f8fafc', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+                        <div style={{ height: '160px', backgroundColor: '#0f172a', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                          <img src={item.photoProof} alt="Proof" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ padding: '14px' }}>
+                          <strong style={{ fontSize: '13px', color: '#0f172a', display: 'block', marginBottom: '4px' }}>{item.title}</strong>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>By: <strong>{item.actor}</strong></div>
+                          <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '4px', fontWeight: '600' }}>🕒 {formatDateTime(item.timestamp)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: DOCTORS & DEPARTMENT LOAD */}
+            {adminActiveTab === 'doctors' && (
+              <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
+                <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: '16px' }}>👨‍⚕️ On-Shift Physicians & Real-Time OPD Desk Status</h3>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                  {doctorsList.map(doc => {
+                    const loc = DEPARTMENT_LOCATIONS[doc.department] || { room: 'Room 102', block: 'OPD Block A' }
+                    return (
+                      <div key={doc.doctorId} style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '12px', backgroundColor: '#f8fafc' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div>
+                            <strong style={{ fontSize: '16px', color: '#0f172a' }}>{doc.name}</strong>
+                            <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold', marginTop: '2px' }}>{doc.department}</div>
+                            <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                              📍 <strong>{loc.room}</strong> • {loc.block}
+                            </div>
+                          </div>
+                          <span style={{ padding: '3px 8px', borderRadius: '12px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 'bold' }}>
+                            ● Active Shift
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: INPATIENT BED & CONSUMABLES SUMMARY */}
+            {adminActiveTab === 'wards' && (
+              <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid #e2e8f0' }}>
+                <h3 style={{ margin: '0 0 16px 0', color: '#0f172a', fontSize: '16px' }}>🛏️ Inpatient Bed Allocation & Supply Audit</h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+                  <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
+                    <span style={{ fontSize: '12px', color: '#1e40af', fontWeight: 'bold' }}>Active Admitted Inpatients</span>
+                    <h3 style={{ margin: '4px 0 0 0', color: '#1d4ed8', fontSize: '22px' }}>{activeAdmittedList.length}</h3>
+                  </div>
+
+                  <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+                    <span style={{ fontSize: '12px', color: '#15803d', fontWeight: 'bold' }}>Discharged Archives</span>
+                    <h3 style={{ margin: '4px 0 0 0', color: '#16a34a', fontSize: '22px' }}>{dischargedAdmittedList.length}</h3>
+                  </div>
+
+                  <div style={{ padding: '16px', backgroundColor: '#faf5ff', borderRadius: '10px', border: '1px solid #e9d5ff' }}>
+                    <span style={{ fontSize: '12px', color: '#7e22ce', fontWeight: 'bold' }}>Total Admissions Logged</span>
+                    <h3 style={{ margin: '4px 0 0 0', color: '#9333ea', fontSize: '22px' }}>{admissionsList.length}</h3>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
+                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>PATIENT & BED</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>WARD & STATUS</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'left' }}>CONSUMABLES LOGGED</th>
+                        <th style={{ padding: '12px 16px', textAlign: 'right' }}>TIMESTAMPS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {admissionsList.map((adm, idx) => (
+                        <tr key={adm._id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fcfcfd' }}>
+                          <td style={{ padding: '12px 16px' }}>
+                            <strong>{adm.patientName || adm.patientId}</strong>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>Ph: +91 {adm.phoneNumber}</div>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <div>{adm.wardType} ({adm.bedNumber})</div>
+                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: adm.status === 'DISCHARGED' ? '#15803d' : '#991b1b' }}>{adm.status}</span>
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <strong>{adm.resourcesAllocated?.length || 0} Consumables</strong>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>Zero-leakage audited</div>
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '12px', color: '#2563eb' }}>
+                            🕒 {formatDateTime(adm.admittedAt || adm.createdAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            )}
+
           </div>
         )}
 
