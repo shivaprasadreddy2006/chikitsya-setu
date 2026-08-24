@@ -209,12 +209,13 @@ function App() {
       })
 
       const aiAnswer = res.data.answer
+      const resLang = res.data.language || voiceLang
       setVoiceAssistantResponse(aiAnswer)
       setIsAiLoading(false)
-      speakText(aiAnswer, voiceLang)
+      speakText(aiAnswer, resLang)
     } catch (err) {
       setIsAiLoading(false)
-      const fallback = `I could not connect to hospital navigator. Please proceed to Doctor Room 102.`
+      const fallback = voiceLang === 'te-IN' ? `హాస్పిటల్ నావిగేటర్‌తో కనెక్ట్ కాలేదు. దయచేసి డాక్టర్ రూమ్ 102 కి వెళ్ళండి.` : `I could not connect to hospital navigator. Please proceed to Doctor Room 102.`
       setVoiceAssistantResponse(fallback)
       speakText(fallback, voiceLang)
     }
