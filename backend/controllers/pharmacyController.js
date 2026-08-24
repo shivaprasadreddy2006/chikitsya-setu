@@ -39,24 +39,32 @@ exports.createPrescription = async (req, res) => {
     }
 };
 
-// 3. Pharmacy dispenses medicine
+// 3. Pharmacy dispenses medicine with Photo Proof of Handed-Over Packet
 exports.dispenseMedicines = async (req, res) => {
     try {
         const { prescriptionId } = req.params;
+        const { photoProof } = req.body;
+
+        const updateData = {
+            status: 'COMPLETELY_DISPENSED',
+            dispensedAt: new Date(),
+            dispensedByStaff: 'Duty Pharmacist (Counter #3)',
+            'medicines.$[].isDispensed': true
+        };
+
+        if (photoProof) {
+            updateData.photoProof = photoProof;
+            updateData.photoProofTimestamp = new Date();
+        }
 
         const updated = await Prescription.findByIdAndUpdate(
             prescriptionId,
-            {
-                status: 'COMPLETELY_DISPENSED',
-                dispensedAt: new Date(),
-                dispensedByStaff: 'Duty Pharmacist (Counter #3)',
-                'medicines.$[].isDispensed': true
-            },
+            updateData,
             { new: true }
         );
 
         res.status(200).json({
-            message: "Medicines dispensed and logged against patient file!",
+            message: `Medicines dispensed and verified with ${photoProof ? '📸 Photographic Proof of Handover' : 'Digital Log'}!`,
             prescription: updated
         });
     } catch (error) {

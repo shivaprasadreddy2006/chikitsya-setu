@@ -38,6 +38,16 @@ const formatDateTime = (dateStr) => {
   })
 }
 
+// Helper: File to Base64 reader for Photo Proofs
+const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = error => reject(error)
+  })
+}
+
 function App() {
   const savedSession = getSavedSession()
 
@@ -94,19 +104,22 @@ function App() {
   const [followUpAdviceText, setFollowUpAdviceText] = useState('Follow-up after 5-7 days in OPD Room 102 if symptoms persist.')
   const [doctorMessage, setDoctorMessage] = useState('')
 
-  // ---------- LAB STATE ----------
+  // ---------- LAB STATE & PHOTO PROOF ----------
   const [labOrders, setLabOrders] = useState([])
   const [labFindingsInput, setLabFindingsInput] = useState({})
+  const [labPhotoProofs, setLabPhotoProofs] = useState({}) // { [orderId]: base64 }
   const [labMessage, setLabMessage] = useState('')
 
-  // ---------- PHARMACY STATE ----------
+  // ---------- PHARMACY STATE & PHOTO PROOF ----------
   const [prescriptions, setPrescriptions] = useState([])
+  const [pharmacyPhotoProofs, setPharmacyPhotoProofs] = useState({}) // { [rxId]: base64 }
   const [pharmacyMessage, setPharmacyMessage] = useState('')
 
-  // ---------- INPATIENT WARD STATE ----------
+  // ---------- INPATIENT WARD STATE & PHOTO PROOF ----------
   const [admissionsList, setAdmissionsList] = useState([])
   const [wardViewFilter, setWardViewFilter] = useState('admitted') // 'admitted' | 'discharged'
   const [resourceItemName, setResourceItemName] = useState('IV Cannula 20G & Normal Saline')
+  const [wardResourcePhotoProof, setWardResourcePhotoProof] = useState(null)
   const [wardMessage, setWardMessage] = useState('')
 
   // ---------- O/P DESK STATE ----------
@@ -444,10 +457,11 @@ function App() {
     } catch (err) { setDoctorMessage(`⚠️ ${err.response?.data?.message || 'Failed'}`) }
   }
 
-  // ---------- LAB ACTIONS ----------
+  // ---------- LAB ACTIONS (WITH PHOTO PROOF OF SAMPLE & FILM) ----------
   const handleLabCollect = async (reqId) => {
     try {
-      const res = await axios.put(`${API_BASE}/labs/collect/${reqId}`)
+      const photo = labPhotoProofs[reqId] || null
+      const res = await axios.put(`${API_BASE}/labs/collect/${reqId}`, { photoProof: photo })
       setLabMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchLabOrders()
     } catch (err) { setLabMessage(`⚠️ ${err.message}`) }
@@ -456,26 +470,32 @@ function App() {
   const handleLabPublish = async (reqId) => {
     try {
       const findings = labFindingsInput[reqId] || 'Normal biological reference intervals maintained.'
-      const res = await axios.put(`${API_BASE}/labs/publish/${reqId}`, { findings })
+      const photo = labPhotoProofs[reqId] || null
+      const res = await axios.put(`${API_BASE}/labs/publish/${reqId}`, { findings, photoProof: photo })
       setLabMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchLabOrders()
     } catch (err) { setLabMessage(`⚠️ ${err.message}`) }
   }
 
-  // ---------- PHARMACY ACTIONS ----------
+  // ---------- PHARMACY ACTIONS (WITH PHOTO PROOF OF HANDED-OVER MEDICINE) ----------
   const handleDispense = async (rxId) => {
     try {
-      const res = await axios.put(`${API_BASE}/pharmacy/dispense/${rxId}`)
+      const photo = pharmacyPhotoProofs[rxId] || null
+      const res = await axios.put(`${API_BASE}/pharmacy/dispense/${rxId}`, { photoProof: photo })
       setPharmacyMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
       fetchPrescriptions()
     } catch (err) { setPharmacyMessage(`⚠️ ${err.message}`) }
   }
 
-  // ---------- WARD ACTIONS ----------
+  // ---------- WARD ACTIONS (WITH BEDSIDE PHOTO PROOF) ----------
   const handleLogResource = async (admissionId) => {
     try {
-      const res = await axios.post(`${API_BASE}/admissions/resource/${admissionId}`, { itemName: resourceItemName })
+      const res = await axios.post(`${API_BASE}/admissions/resource/${admissionId}`, { 
+        itemName: resourceItemName,
+        photoProof: wardResourcePhotoProof
+      })
       setWardMessage(`✅ ${res.data.message} [Time: ${formatDateTime(new Date())}]`)
+      setWardResourcePhotoProof(null)
       fetchAdmissions()
     } catch (err) { setWardMessage(`⚠️ ${err.message}`) }
   }
@@ -846,7 +866,7 @@ function App() {
                       📅 Complete Patient Journey & Timestamped Audit Trail
                     </h3>
                     <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: '600' }}>
-                      💡 Click any event to open full clinical details
+                      💡 Click any event to open full clinical details & photo proof
                     </span>
                   </div>
 
@@ -875,9 +895,16 @@ function App() {
                           <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                               <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.stage}</strong>
-                              <span style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '6px' }}>
-                                🕒 {formatDateTime(item.timestamp)}
-                              </span>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                {item.photoProof && (
+                                  <span style={{ fontSize: '11px', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #86efac', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                    📸 Photo Proof
+                                  </span>
+                                )}
+                                <span style={{ fontSize: '12px', fontWeight: '600', color: '#2563eb', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '6px' }}>
+                                  🕒 {formatDateTime(item.timestamp)}
+                                </span>
+                              </div>
                             </div>
                             <p style={{ margin: '2px 0 4px 0', fontSize: '13px', color: '#475569', lineHeight: '1.4' }}>{item.details}</p>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
@@ -885,7 +912,7 @@ function App() {
                                 Clinician/Staff: <strong>{item.performedBy || item.doctorName}</strong>
                               </span>
                               <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 'bold' }}>
-                                View Full Clinical File ➔
+                                View Full Clinical File & Photos ➔
                               </span>
                             </div>
                           </div>
@@ -920,6 +947,7 @@ function App() {
                           deliveryInstructions: lab.deliveryInstructions,
                           clinicalFindings: lab.findings,
                           referenceRange: lab.referenceRange,
+                          photoProof: lab.photoProof,
                           details: lab.findings ? `Findings: ${lab.findings}` : 'Sample in analysis',
                           status: lab.status,
                           rawData: lab
@@ -935,16 +963,23 @@ function App() {
                               Location: {lab.labRoom} • Delivery: <strong>{lab.deliveryMode === 'PHYSICAL_COUNTER' ? '📄 Physical Hard-Copy' : '⚡ Digital Direct'}</strong>
                             </div>
                           </div>
-                          <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: lab.status === 'REPORT_READY' ? '#dcfce7' : '#fef3c7', color: lab.status === 'REPORT_READY' ? '#15803d' : '#b45309' }}>
-                            {lab.status === 'REPORT_READY' ? '✅ Report Published' : lab.status === 'SAMPLE_COLLECTED' ? '🧪 Sample in Analysis' : '⏳ Sample Pending'}
-                          </span>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            {lab.photoProof && (
+                              <span style={{ fontSize: '11px', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #86efac', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                                📸 Photo Verified
+                              </span>
+                            )}
+                            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: lab.status === 'REPORT_READY' ? '#dcfce7' : '#fef3c7', color: lab.status === 'REPORT_READY' ? '#15803d' : '#b45309' }}>
+                              {lab.status === 'REPORT_READY' ? '✅ Report Published' : lab.status === 'SAMPLE_COLLECTED' ? '🧪 Sample in Analysis' : '⏳ Sample Pending'}
+                            </span>
+                          </div>
                         </div>
 
                         {lab.findings && (
                           <div style={{ marginTop: '10px', backgroundColor: 'white', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
                             <strong>Clinical Findings:</strong> {lab.findings}
                             <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px' }}>
-                              🕒 Published Timestamp: {formatDateTime(lab.updatedAt || lab.completedAt)} (Click for full report modal)
+                              🕒 Published Timestamp: {formatDateTime(lab.updatedAt || lab.completedAt)} (Click to view full report & photo proof)
                             </div>
                           </div>
                         )}
@@ -976,6 +1011,7 @@ function App() {
                           medicines: rx.medicines,
                           notes: rx.notes,
                           status: rx.status,
+                          photoProof: rx.photoProof,
                           details: `Prescribed by ${rx.doctorName} (${rx.doctorDepartment})`,
                           rawData: rx
                         })}
@@ -987,9 +1023,16 @@ function App() {
                             </span>
                             <div style={{ fontSize: '12px', color: '#64748b' }}>Date & Time: {formatDateTime(rx.createdAt)}</div>
                           </div>
-                          <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#dcfce7' : '#fef3c7', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#15803d' : '#b45309' }}>
-                            {rx.status}
-                          </span>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            {rx.photoProof && (
+                              <span style={{ fontSize: '11px', backgroundColor: '#f0fdf4', color: '#166534', border: '1px solid #86efac', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                                📸 Handover Photo
+                              </span>
+                            )}
+                            <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', backgroundColor: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#dcfce7' : '#fef3c7', color: rx.status === 'COMPLETELY_DISPENSED' || rx.status === 'DISPENSED' ? '#15803d' : '#b45309' }}>
+                              {rx.status}
+                            </span>
+                          </div>
                         </div>
                         <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px' }}>
                           {rx.medicines.map((m, idx) => (
@@ -1000,7 +1043,7 @@ function App() {
                         </ul>
                         {rx.dispensedAt && (
                           <div style={{ marginTop: '8px', fontSize: '12px', color: '#16a34a' }}>
-                            🕒 Dispensed Timestamp: {formatDateTime(rx.dispensedAt)} (Click to view detailed dosage schedule)
+                            🕒 Dispensed Timestamp: {formatDateTime(rx.dispensedAt)} (Click to view medicine packet photo proof)
                           </div>
                         )}
                       </div>
@@ -1048,7 +1091,7 @@ function App() {
                     <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#475569' }}>
                       {patientFullFile.admission.resourcesAllocated?.map((res, i) => (
                         <li key={i} style={{ marginBottom: '6px' }}>
-                          <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by {res.loggedByStaff} • 🕒 {formatDateTime(res.loggedAt)}
+                          <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by {res.loggedByStaff} • 🕒 {formatDateTime(res.loggedAt)} {res.photoProof && '📸 [Photo Proof]'}
                         </li>
                       ))}
                     </ul>
@@ -1271,7 +1314,7 @@ function App() {
                             <div style={{ flex: 1 }}>
                               <strong>{evt.stage}</strong> - {evt.details}
                               <div style={{ fontSize: '11px', color: '#2563eb', marginTop: '2px' }}>
-                                By: <strong>{evt.performedBy || evt.doctorName}</strong> • {formatDateTime(evt.timestamp)}
+                                By: <strong>{evt.performedBy || evt.doctorName}</strong> • {formatDateTime(evt.timestamp)} {evt.photoProof && '📸 [Photo]'}
                               </div>
                             </div>
                           </div>
@@ -1394,15 +1437,18 @@ function App() {
           </div>
         )}
 
-        {/* 4. DIAGNOSTIC LAB DASHBOARD */}
+        {/* 4. DIAGNOSTIC LAB DASHBOARD (WITH PHOTO PROOF OF SAMPLE & FILM) */}
         {activeView === 'lab' && currentUser?.role === 'lab' && (
-          <div style={{ width: '100%', maxWidth: '860px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>🔬 Diagnostic Laboratory Monitor</h2>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Actionable queue for sample collections and digital findings publishing.</p>
+          <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h2 style={{ margin: 0, color: '#0f172a' }}>🔬 Diagnostic Laboratory Monitor</h2>
+              <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>📸 Photo-Verified Lab</span>
+            </div>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Actionable queue for sample collections, film uploads, and photo proof of biological samples.</p>
 
             {labMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{labMessage}</div>}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               {labOrders.map(order => (
                 <div key={order._id} style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -1422,28 +1468,81 @@ function App() {
                   </div>
 
                   {order.status === 'PENDING' && (
-                    <button onClick={() => handleLabCollect(order._id)} style={{ padding: '8px 16px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                      🧪 Collect Blood/Fluid Sample ➔
-                    </button>
-                  )}
-
-                  {order.status === 'SAMPLE_COLLECTED' && (
-                    <div>
-                      <div style={{ fontSize: '12px', color: '#15803d', marginBottom: '6px' }}>
-                        Sample Collected at: {formatDateTime(order.sampleCollectedAt || order.updatedAt)}
-                      </div>
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <input type="text" placeholder="Enter clinical finding..." style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} onChange={e => setLabFindingsInput({...labFindingsInput, [order._id]: e.target.value})} />
-                        <button onClick={() => handleLabPublish(order._id)} style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                          Publish to Patient Portal ➔
-                        </button>
-                      </div>
+                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '6px' }}>
+                        📸 Attach Photo of Barcoded Sample Vial / Patient Token:
+                      </label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment" 
+                        onChange={async (e) => {
+                          if (e.target.files[0]) {
+                            const b64 = await fileToBase64(e.target.files[0])
+                            setLabPhotoProofs({ ...labPhotoProofs, [order._id]: b64 })
+                          }
+                        }}
+                        style={{ fontSize: '12px', marginBottom: '10px' }}
+                      />
+                      {labPhotoProofs[order._id] && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <img src={labPhotoProofs[order._id]} alt="Vial Proof" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                        </div>
+                      )}
+                      <button onClick={() => handleLabCollect(order._id)} style={{ padding: '8px 18px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                        🧪 Confirm Sample Collection {labPhotoProofs[order._id] ? '(with Photo Proof)' : ''} ➔
+                      </button>
                     </div>
                   )}
 
-                  {order.status === 'REPORT_READY' && order.findings && (
-                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#166534', backgroundColor: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
-                      <strong>Published Finding:</strong> {order.findings} (Published: {formatDateTime(order.updatedAt)})
+                  {order.status === 'SAMPLE_COLLECTED' && (
+                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontSize: '12px', color: '#15803d', marginBottom: '8px' }}>
+                        Sample Collected at: {formatDateTime(order.sampleCollectedAt || order.updatedAt)}
+                      </div>
+                      
+                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>Enter Clinical Findings:</label>
+                      <input type="text" placeholder="e.g. Hb: 13.8 g/dL, WBC: 7,200 /mcL, Platelets: 2.4 Lakhs" style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} onChange={e => setLabFindingsInput({...labFindingsInput, [order._id]: e.target.value})} />
+
+                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                        📸 Upload Photo Proof of Diagnostic Sheet / Film:
+                      </label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={async (e) => {
+                          if (e.target.files[0]) {
+                            const b64 = await fileToBase64(e.target.files[0])
+                            setLabPhotoProofs({ ...labPhotoProofs, [order._id]: b64 })
+                          }
+                        }}
+                        style={{ fontSize: '12px', marginBottom: '10px' }}
+                      />
+                      {labPhotoProofs[order._id] && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <img src={labPhotoProofs[order._id]} alt="Report Sheet Proof" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                        </div>
+                      )}
+
+                      <button onClick={() => handleLabPublish(order._id)} style={{ padding: '8px 18px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                        Publish to Patient Portal {labPhotoProofs[order._id] ? '(with Photo Proof)' : ''} ➔
+                      </button>
+                    </div>
+                  )}
+
+                  {order.status === 'REPORT_READY' && (
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: '#166534', backgroundColor: 'white', padding: '12px', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <strong>Published Finding:</strong> {order.findings}
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>Published: {formatDateTime(order.updatedAt)}</div>
+                        </div>
+                        {order.photoProof && (
+                          <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                            📸 Photo Proof Verified
+                          </span>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1452,15 +1551,18 @@ function App() {
           </div>
         )}
 
-        {/* 5. PHARMACY DASHBOARD */}
+        {/* 5. PHARMACY DASHBOARD (WITH PHOTO PROOF OF HANDED-OVER MEDICINES) */}
         {activeView === 'pharmacy' && currentUser?.role === 'pharmacy' && (
-          <div style={{ width: '100%', maxWidth: '860px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
-            <h2 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>💊 Pharmacy Dispensing Counter</h2>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Verify digital prescriptions and log dispensed medicines.</p>
+          <div style={{ width: '100%', maxWidth: '880px', backgroundColor: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h2 style={{ margin: 0, color: '#0f172a' }}>💊 Pharmacy Dispensing Counter</h2>
+              <span style={{ fontSize: '12px', backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>📸 Handover Photo Proof</span>
+            </div>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Verify digital prescriptions, capture photo proof of medicine packets handed over, and prevent stock diversion.</p>
 
             {pharmacyMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{pharmacyMessage}</div>}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
               {prescriptions.map(rx => (
                 <div key={rx._id} style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -1483,12 +1585,40 @@ function App() {
                   </ul>
 
                   {rx.status !== 'COMPLETELY_DISPENSED' && rx.status !== 'DISPENSED' ? (
-                    <button onClick={() => handleDispense(rx._id)} style={{ padding: '8px 16px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                      Dispense & Log Digitally ➔
-                    </button>
+                    <div style={{ backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '4px' }}>
+                        📸 Capture / Upload Photo Proof of Medicine Packet Handover:
+                      </label>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment"
+                        onChange={async (e) => {
+                          if (e.target.files[0]) {
+                            const b64 = await fileToBase64(e.target.files[0])
+                            setPharmacyPhotoProofs({ ...pharmacyPhotoProofs, [rx._id]: b64 })
+                          }
+                        }}
+                        style={{ fontSize: '12px', marginBottom: '10px' }}
+                      />
+                      {pharmacyPhotoProofs[rx._id] && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <img src={pharmacyPhotoProofs[rx._id]} alt="Med Packet Proof" style={{ height: '60px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                        </div>
+                      )}
+
+                      <button onClick={() => handleDispense(rx._id)} style={{ padding: '10px 18px', backgroundColor: '#16a34a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                        Dispense & Verify Handover {pharmacyPhotoProofs[rx._id] ? '(with Photo Proof)' : ''} ➔
+                      </button>
+                    </div>
                   ) : (
-                    <div style={{ fontSize: '12px', color: '#15803d' }}>
-                      ✅ Dispensed on: {formatDateTime(rx.dispensedAt || rx.updatedAt)}
+                    <div style={{ fontSize: '12px', color: '#15803d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>✅ Dispensed on: {formatDateTime(rx.dispensedAt || rx.updatedAt)}</span>
+                      {rx.photoProof && (
+                        <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', padding: '2px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                          📸 Proof Verified
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1504,7 +1634,7 @@ function App() {
               <h2 style={{ margin: 0, color: '#0f172a' }}>🛏️ Inpatient Ward & Micro-Resource Tracker</h2>
               <span style={{ fontSize: '12px', backgroundColor: '#dbeafe', color: '#1e40af', padding: '4px 10px', borderRadius: '12px', fontWeight: 'bold' }}>Zero Supply Leakage</span>
             </div>
-            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Track bed allocations, consumables consumed, blood units, and permanent discharged archives.</p>
+            <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>Track bed allocations, consumables consumed, blood units, and permanent discharged archives with photo proofs.</p>
 
             {wardMessage && <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f0fdf4', color: '#166534', borderRadius: '8px' }}>{wardMessage}</div>}
 
@@ -1611,20 +1741,39 @@ function App() {
                         <ul style={{ margin: '6px 0 0 0', paddingLeft: '20px', fontSize: '13px', color: '#475569' }}>
                           {adm.resourcesAllocated?.map((res, i) => (
                             <li key={i} style={{ marginBottom: '4px' }}>
-                              <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by <strong>{res.loggedByStaff}</strong> • 🕒 <span style={{ color: '#2563eb' }}>{formatDateTime(res.loggedAt)}</span>
+                              <strong>{res.itemName}</strong> (Qty: {res.quantity}) - Logged by <strong>{res.loggedByStaff}</strong> • 🕒 <span style={{ color: '#2563eb' }}>{formatDateTime(res.loggedAt)}</span> {res.photoProof && '📸 [Photo Attached]'}
                             </li>
                           ))}
                         </ul>
                       )}
                     </div>
 
-                    {/* Nurse Log Resource Action Bar (Only for Active Admitted Patients) */}
+                    {/* Nurse Log Resource Action Bar with Bedside Photo Proof */}
                     {adm.status === 'ADMITTED' && (
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <input type="text" placeholder="e.g. Blood Unit O+ / Syringe 10ml / Surgical Dressing..." style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }} value={resourceItemName} onChange={e => setResourceItemName(e.target.value)} />
-                        <button onClick={() => handleLogResource(adm._id)} style={{ padding: '8px 16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
-                          + Log Consumable
-                        </button>
+                      <div style={{ backgroundColor: '#f1f5f9', padding: '12px', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '8px' }}>
+                          <input type="text" placeholder="e.g. Blood Unit O+ / Syringe 10ml / Surgical Dressing..." style={{ flex: 1, padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px' }} value={resourceItemName} onChange={e => setResourceItemName(e.target.value)} />
+                          <button onClick={() => handleLogResource(adm._id)} style={{ padding: '8px 16px', backgroundColor: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>
+                            + Log Consumable {wardResourcePhotoProof ? '(with Photo)' : ''}
+                          </button>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <label style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>📸 Optional Bedside Photo Proof:</label>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment"
+                            onChange={async (e) => {
+                              if (e.target.files[0]) {
+                                const b64 = await fileToBase64(e.target.files[0])
+                                setWardResourcePhotoProof(b64)
+                              }
+                            }}
+                            style={{ fontSize: '11px' }}
+                          />
+                          {wardResourcePhotoProof && <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 'bold' }}>✓ Photo Attached</span>}
+                        </div>
                       </div>
                     )}
 
@@ -1745,7 +1894,7 @@ function App() {
                 </button>
               </div>
               <p style={{ margin: '0 0 20px 0', color: '#64748b', fontSize: '14px' }}>
-                Complete live stream of every single event in Gandhi Hospital with exact Date & Time timestamps.
+                Complete live stream of every single event in Gandhi Hospital with exact Date & Time timestamps and Photo Proof verification.
               </p>
 
               {/* Date-wise Activity Breakdown Cards */}
@@ -1838,6 +1987,11 @@ function App() {
 
                         <div style={{ color: '#334155', fontSize: '12px', lineHeight: '1.4' }}>
                           {log.details}
+                          {log.photoProof && (
+                            <span style={{ display: 'inline-block', marginLeft: '6px', fontSize: '11px', color: '#166534', fontWeight: 'bold', backgroundColor: '#dcfce7', padding: '2px 6px', borderRadius: '4px' }}>
+                              📸 Proof Attached
+                            </span>
+                          )}
                         </div>
 
                         <div style={{ fontSize: '12px', color: '#475569', fontWeight: '600' }}>
@@ -1858,7 +2012,7 @@ function App() {
 
       </main>
 
-      {/* INTERACTIVE CLINICAL DETAIL INSPECTION MODAL */}
+      {/* INTERACTIVE CLINICAL DETAIL INSPECTION MODAL (WITH PHOTO PROOFS) */}
       {selectedDetailItem && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.65)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000, padding: '20px' }}>
           <div style={{ backgroundColor: 'white', width: '100%', maxWidth: '640px', borderRadius: '16px', padding: '32px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', position: 'relative', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -1883,6 +2037,27 @@ function App() {
                 <strong style={{ fontSize: '13px', color: '#2563eb' }}>👨‍⚕️ {selectedDetailItem.performedBy || selectedDetailItem.doctorName || 'Attending Physician'}</strong>
               </div>
             </div>
+
+            {/* PHOTOGRAPHIC PROOF OF DELIVERY / HANDOVER (Zero Exploitation & Anti-Theft) */}
+            {selectedDetailItem.photoProof && (
+              <div style={{ backgroundColor: '#f0fdf4', border: '2px solid #86efac', borderRadius: '12px', padding: '16px', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '18px' }}>📸</span>
+                    <strong style={{ color: '#15803d', fontSize: '14px' }}>Photographic Proof of Handover / Delivery Verified</strong>
+                  </div>
+                  <span style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                    ✓ Zero Exploitation Proof
+                  </span>
+                </div>
+                <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#166534' }}>
+                  Captured at station counter / patient bedside to verify physical handover and eliminate middleman theft.
+                </p>
+                <div style={{ textAlign: 'center', backgroundColor: '#ffffff', padding: '8px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                  <img src={selectedDetailItem.photoProof} alt="Photographic Proof" style={{ maxWidth: '100%', maxHeight: '240px', borderRadius: '6px', objectFit: 'contain' }} />
+                </div>
+              </div>
+            )}
 
             {/* Discharge Summary in Detail Modal */}
             {selectedDetailItem.dischargeSummary && (

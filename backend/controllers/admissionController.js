@@ -79,29 +79,36 @@ exports.getActiveAdmissions = async (req, res) => {
     }
 };
 
-// 3. Nurse logs micro-consumable (Zero Leakage)
+// 3. Nurse logs micro-consumable (Zero Leakage) with optional Bedside Photo Proof
 exports.logResource = async (req, res) => {
     try {
         const { admissionId } = req.params;
-        const { itemName, quantity, loggedByStaff } = req.body;
+        const { itemName, quantity, loggedByStaff, photoProof } = req.body;
+
+        const resourceEntry = {
+            itemName: itemName || 'Medical Consumable',
+            quantity: quantity || 1,
+            loggedAt: new Date(),
+            loggedByStaff: loggedByStaff || 'Duty Nurse (Ward Station)'
+        };
+
+        if (photoProof) {
+            resourceEntry.photoProof = photoProof;
+            resourceEntry.photoProofTimestamp = new Date();
+        }
 
         const updated = await Admission.findByIdAndUpdate(
             admissionId,
             {
                 $push: {
-                    resourcesAllocated: {
-                        itemName: itemName || 'Medical Consumable',
-                        quantity: quantity || 1,
-                        loggedAt: new Date(),
-                        loggedByStaff: loggedByStaff || 'Duty Nurse (Ward Station)'
-                    }
+                    resourcesAllocated: resourceEntry
                 }
             },
             { new: true }
         );
 
         res.status(200).json({
-            message: `Resource "${itemName}" logged digitally to patient bed ledger!`,
+            message: `Resource "${itemName}" logged digitally to patient bed ledger with ${photoProof ? '📸 Bedside Photo Proof' : 'Staff Timestamp'}!`,
             admission: updated
         });
     } catch (error) {

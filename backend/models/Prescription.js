@@ -21,7 +21,11 @@ const prescriptionSchema = new mongoose.Schema({
         enum: ['PENDING_PHARMACY', 'PARTIALLY_DISPENSED', 'COMPLETELY_DISPENSED']
     },
     dispensedAt: { type: Date },
-    dispensedByStaff: { type: String, default: 'Duty Pharmacist (Counter #3)' }
+    dispensedByStaff: { type: String, default: 'Duty Pharmacist (Counter #3)' },
+
+    // Photographic Proof of Handed-Over Medications (Anti-Theft / Zero Leakage)
+    photoProof: { type: String },
+    photoProofTimestamp: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Prescription', prescriptionSchema);

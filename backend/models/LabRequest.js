@@ -30,6 +30,10 @@ const labRequestSchema = new mongoose.Schema({
     referenceRange: { type: String, default: 'Biological reference intervals within normal clinical tolerance.' },
     reportUrl: { type: String },
     
+    // Photographic Proof of Sample Collection / Physical Diagnostic Film (Anti-Corruption / Zero Exploitation)
+    photoProof: { type: String },
+    photoProofTimestamp: { type: Date },
+
     // SLA and Accountability timestamps
     sampleCollectedAt: { type: Date },
     completedAt: { type: Date },

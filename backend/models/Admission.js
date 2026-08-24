@@ -17,10 +17,12 @@ const admissionSchema = new mongoose.Schema({
     bedNumber: { type: String, required: true }, // e.g. "BED-GW-12"
     diagnosis: { type: String },
     
-    // Micro-Resource & Consumables tracking against patient (Zero Leakage)
+    // Micro-Resource & Consumables tracking against patient (Zero Leakage) with Photographic Evidence
     resourcesAllocated: [{
         itemName: { type: String }, // e.g. "Blood Unit O+", "IV Cannula 20G", "Syringe 5ml", "Surgical Kit"
         quantity: { type: Number, default: 1 },
+        photoProof: { type: String }, // Base64 or image URL of consumable at patient bedside
+        photoProofTimestamp: { type: Date },
         loggedAt: { type: Date, default: Date.now },
         loggedByStaff: { type: String, default: 'Duty Nurse' }
     }],
