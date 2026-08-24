@@ -14,157 +14,6 @@ const getSavedSession = () => {
   return null
 }
 
-// 🏥 COMPREHENSIVE GANDHI HOSPITAL MAP & NAVIGATION DIRECTORY
-const HOSPITAL_DIRECTORY = [
-  {
-    id: 'room-102',
-    name: 'Dr. Ramesh Sharma (General Medicine)',
-    nameTe: 'డాక్టర్ రమేష్ శర్మ (జనరల్ మెడిసిన్)',
-    category: 'Doctor Cabins',
-    room: 'Room 102',
-    floor: 'Ground Floor',
-    block: 'OPD Block A (Wing 1)',
-    colorTag: '#16a34a',
-    lineColor: 'Green Floor Line',
-    steps: [
-      { stepNumber: 1, text: 'Start at the Main Entrance Gate and proceed past O/P Registration.', textTe: 'ప్రధాన ప్రవేశ ద్వారం వద్ద ప్రారంభించి ఓపీ రిజిస్ట్రేషన్ దాటి ముందుకు వెళ్లండి.' },
-      { stepNumber: 2, text: 'Follow the GREEN line on the floor straight down Corridor A (25 meters).', textTe: 'కారిడార్ A లో నేలపై ఉన్న ఆకుపచ్చ రంగు గీతను అనుసరించి 25 మీటర్లు నడవండి.' },
-      { stepNumber: 3, text: 'Pass Triage Room 101 on your left side.', textTe: 'మీ ఎడమవైపు ఉన్న రూమ్ 101 దాటండి.' },
-      { stepNumber: 4, text: 'Room 102 is the 3rd door on the left with the sign "General Medicine - Dr. Ramesh Sharma".', textTe: 'ఎడమవైపు మూడో తలుపు రూమ్ నంబర్ 102 "జనరల్ మెడిసిన్" వద్దకు చేరుకున్నారు.' }
-    ]
-  },
-  {
-    id: 'room-105',
-    name: 'Pathology Laboratory 1 (Blood & Urine Tests)',
-    nameTe: 'పాథాలజీ ల్యాబొరేటరీ 1 (రక్త & మూత్ర పరీక్షలు)',
-    category: 'Diagnostics & Labs',
-    room: 'Room 105',
-    floor: 'Ground Floor',
-    block: 'Central Diagnostic Wing',
-    colorTag: '#2563eb',
-    lineColor: 'Blue Floor Line',
-    steps: [
-      { stepNumber: 1, text: 'From OPD Block A, walk straight toward the Central Atrium.', textTe: 'ఓపీడీ బ్లాక్ A నుండి సెంట్రల్ వైపు నేరుగా నడవండి.' },
-      { stepNumber: 2, text: 'Follow the BLUE floor line labeled "Diagnostic Labs".', textTe: '"డయాగ్నస్టిక్ ల్యాబ్స్" అని ఉన్న నీలిరంగు గీతను అనుసరించండి.' },
-      { stepNumber: 3, text: 'Walk past the drinking water station.', textTe: 'తాగునీటి కేంద్రం దాటి ముందుకు వెళ్ళండి.' },
-      { stepNumber: 4, text: 'Room 105 (Pathology Lab 1) is directly opposite. Collect your sample token at Counter 1.', textTe: 'ఎదురుగా ఉన్న రూమ్ 105 వద్దకు చేరుకున్నారు. కౌంటర్‌లో ఉచిత శాంపిల్ టోకెన్ తీసుకోండి.' }
-    ]
-  },
-  {
-    id: 'pharmacy',
-    name: 'Central Free Pharmacy (Medicine Counter #3)',
-    nameTe: 'సెంట్రల్ ఉచిత ఫార్మసీ (మందుల కౌంటర్ నంబర్ 3)',
-    category: 'Pharmacy',
-    room: 'Counter #3',
-    floor: 'Ground Floor',
-    block: 'Main Exit Wing (Gate 2)',
-    colorTag: '#d97706',
-    lineColor: 'Yellow Floor Line',
-    steps: [
-      { stepNumber: 1, text: 'Follow the YELLOW floor lines leading toward the Main Hospital Exit.', textTe: 'ప్రధాన నిష్క్రమణ వైపు వెళ్లే పసుపు రంగు గీతను అనుసరించండి.' },
-      { stepNumber: 2, text: 'Enter the Medicine Dispensing Hall next to Gate #2.', textTe: 'గేట్ 2 పక్కన ఉన్న మెడిసిన్ డిస్పెన్సింగ్ హాల్‌లోకి ప్రవేశించండి.' },
-      { stepNumber: 3, text: 'Join Queue for Counter #3 (Outpatient Prescriptions).', textTe: 'కౌంటర్ నంబర్ 3 క్యూలో నిలబడండి.' },
-      { stepNumber: 4, text: 'Show your Patient ID on your phone to receive 100% free prescribed medicines.', textTe: 'మీ ఫోన్‌లోని పేషెంట్ ఐడీ చూపి పూర్తి ఉచిత మందులు పొందండి.' }
-    ]
-  },
-  {
-    id: 'room-110',
-    name: 'Digital X-Ray & Chest Radiography',
-    nameTe: 'డిజిటల్ ఎక్స్‌రే & రేడియాలజీ',
-    category: 'Diagnostics & Labs',
-    room: 'Room 110',
-    floor: '1st Floor',
-    block: 'Diagnostic Block B',
-    colorTag: '#7c3aed',
-    lineColor: 'Purple Floor Line',
-    steps: [
-      { stepNumber: 1, text: 'Take Elevator B or the central ramp near Wing 2 to the 1st Floor.', textTe: 'వింగ్ 2 పక్కన ఉన్న లిఫ్ట్ B లేదా మెట్ల ద్వారా మొదటి అంతస్తుకు వెళ్లండి.' },
-      { stepNumber: 2, text: 'Turn right into Diagnostic Block B Corridor.', textTe: 'కుడివైపు డయాగ్నస్టిక్ బ్లాక్ B కారిడార్‌లోకి వెళ్లండి.' },
-      { stepNumber: 3, text: 'Room 110 (Digital X-Ray) is the second door on your right.', textTe: 'కుడివైపు రెండవ గది రూమ్ నంబర్ 110 (డిజిటల్ ఎక్స్‌రే) వద్దకు చేరుకున్నారు.' },
-      { stepNumber: 4, text: 'Hand over your digital test requisition slip to the radiologist technician.', textTe: 'మీ డిజిటల్ రిక్విజిషన్‌ను రేడియాలజిస్ట్ టెక్నీషియన్‌కు చూపించండి.' }
-    ]
-  },
-  {
-    id: 'room-112',
-    name: 'Ultrasound & 2D Echo Sonography',
-    nameTe: 'అల్ట్రాసౌండ్ & 2D ఎకో స్కానింగ్',
-    category: 'Diagnostics & Labs',
-    room: 'Room 112',
-    floor: '1st Floor',
-    block: 'Specialty Diagnostic Wing',
-    colorTag: '#0284c7',
-    lineColor: 'Cyan Floor Line',
-    steps: [
-      { stepNumber: 1, text: 'Take Elevator B to the 1st Floor.', textTe: 'లిఫ్ట్ B ద్వారా మొదటి అంతస్తుకు వెళ్లండి.' },
-      { stepNumber: 2, text: 'Walk past Room 110 to the end of the corridor.', textTe: 'రూమ్ 110 దాటి కారిడార్ చివర వరకు నడవండి.' },
-      { stepNumber: 3, text: 'Room 112 (Ultrasound & 2D Echo) is the glass door on the left.', textTe: 'ఎడమవైపు ఉన్న రూమ్ 112 (అల్ట్రాసౌండ్ స్కానింగ్) వద్దకు చేరుకున్నారు.' }
-    ]
-  },
-  {
-    id: 'room-201',
-    name: 'Cardiology Super-Specialty Clinic',
-    nameTe: 'కార్డియాలజీ సూపర్-స్పెషాలిటీ క్లినిక్',
-    category: 'Doctor Cabins',
-    room: 'Room 201',
-    floor: '2nd Floor',
-    block: 'Specialty Wing C',
-    colorTag: '#dc2626',
-    lineColor: 'Red Floor Line',
-    steps: [
-      { stepNumber: 1, text: 'Take Elevator A or C to the 2nd Floor.', textTe: 'లిఫ్ట్ A లేదా C ద్వారా రెండవ అంతస్తుకు వెళ్లండి.' },
-      { stepNumber: 2, text: 'Follow the RED overhead signs labeled "Cardiology Wing".', textTe: '"కార్డియాలజీ వింగ్" అని ఉన్న ఎరుపు రంగు బోర్డులను అనుసరించండి.' },
-      { stepNumber: 3, text: 'Room 201 is directly opposite the ECG & Stress Test unit.', textTe: 'ఈసీజీ యూనిట్ ఎదురుగా ఉన్న రూమ్ 201 వద్దకు చేరుకున్నారు.' }
-    ]
-  },
-  {
-    id: 'ward-male',
-    name: 'General Inpatient Ward (Male - Beds 1 to 30)',
-    nameTe: 'జనరల్ ఇన్ పేషెంట్ వార్డ్ (పురుషులు - బెడ్స్ 1-30)',
-    category: 'Inpatient Wards',
-    room: 'Ward 2A',
-    floor: '2nd Floor',
-    block: 'Ward Block C',
-    colorTag: '#059669',
-    lineColor: 'Teal Floor Line',
-    steps: [
-      { stepNumber: 1, text: 'Take Elevator C to the 2nd Floor.', textTe: 'లిఫ్ట్ C ద్వారా రెండవ అంతస్తుకు చేరుకోండి.' },
-      { stepNumber: 2, text: 'Enter through the sanitized double glass doors labeled "Male General Ward".', textTe: '"పురుషుల జనరల్ వార్డ్" గాజు తలుపుల గుండా లోపలికి వెళ్ళండి.' },
-      { stepNumber: 3, text: 'Sister Mary at Nurse Station #2 will guide you to your allocated bed.', textTe: 'నర్సింగ్ స్టేషన్ #2 వద్ద సిబ్బంది మీ కేటాయించిన బెడ్ వద్దకు తీసుకువెళతారు.' }
-    ]
-  },
-  {
-    id: 'casualty',
-    name: '24/7 Emergency Casualty & Trauma Unit',
-    nameTe: '24/7 అత్యవసర క్యాజువాల్టీ & ట్రామా కేర్',
-    category: 'Emergency',
-    room: 'Casualty Bay',
-    floor: 'Ground Floor',
-    block: 'Emergency Block E (Ambulance Ramp)',
-    colorTag: '#e11d48',
-    lineColor: 'Flashing Red Emergency Route',
-    steps: [
-      { stepNumber: 1, text: 'From the Main Gate, turn immediately right following the RED flashing lights.', textTe: 'ప్రధాన గేట్ నుండి వెంటనే కుడివైపు ఎరుపు లైట్లను అనుసరించండి.' },
-      { stepNumber: 2, text: 'Follow the dedicated ambulance ramp directly to Block E.', textTe: 'బ్లాక్ E కి వెళ్లే అంబులెన్స్ ర్యాంప్‌ను అనుసరించండి.' },
-      { stepNumber: 3, text: 'Enter through the automatic triage doors for immediate critical resuscitation.', textTe: 'తక్షణ చికిత్స కోసం ఎమర్జెన్సీ తలుపుల గుండా ప్రవేశించండి.' }
-    ]
-  },
-  {
-    id: 'canteen',
-    name: 'Hospital Cafeteria & Drinking Water Dispensers',
-    nameTe: 'ఆసుపత్రి క్యాంటీన్ & మంచినీటి కేంద్రం',
-    category: 'Amenities',
-    room: 'Cafeteria Block',
-    floor: 'Ground Floor',
-    block: 'Courtyard Block C',
-    colorTag: '#ca8a04',
-    lineColor: 'Orange Route',
-    steps: [
-      { stepNumber: 1, text: 'Walk through the open central courtyard between OPD Block A and Block B.', textTe: 'ఓపీడీ బ్లాక్ A మరియు B మధ్య ఉన్న ప్రాంగణం గుండా నడవండి.' },
-      { stepNumber: 2, text: 'The subsidized public cafeteria and hygienic water station is in Block C.', textTe: 'బ్లాక్ C గ్రౌండ్ ఫ్లోర్‌లో క్యాంటీన్ మరియు మంచినీటి కేంద్రం ఉన్నాయి.' }
-    ]
-  }
-]
-
 function App() {
   const savedSession = getSavedSession()
 
@@ -193,14 +42,7 @@ function App() {
   const [otpInfo, setOtpInfo] = useState(null)
   const [otpError, setOtpError] = useState('')
   const [patientFullFile, setPatientFullFile] = useState(null)
-  const [patientTab, setPatientTab] = useState('navigation') // 'navigation' | 'overview' | 'labs' | 'medicines' | 'admissions'
-
-  // ---------- HOSPITAL STEP-BY-STEP WAYFINDER STATE ----------
-  const [selectedDestinationId, setSelectedDestinationId] = useState('room-102')
-  const [navSearchQuery, setNavSearchQuery] = useState('')
-  const [voiceLang, setVoiceLang] = useState('en-IN') // 'en-IN' | 'te-IN' | 'hi-IN'
-  const [isSpeaking, setIsSpeaking] = useState(false)
-  const [currentAudioStep, setCurrentAudioStep] = useState(0)
+  const [patientTab, setPatientTab] = useState('overview') // 'overview' | 'labs' | 'medicines' | 'admissions'
 
   // ---------- DOCTOR STATE ----------
   const [doctorsList, setDoctorsList] = useState([])
@@ -321,48 +163,6 @@ function App() {
     } catch (err) { console.error(err) }
   }
 
-  // ---------- SPEAKER & STEP-BY-STEP AUDIO NAVIGATOR ----------
-  const speakText = (text, lang = voiceLang) => {
-    if (!('speechSynthesis' in window)) return
-    window.speechSynthesis.cancel() // Stop any previous speech immediately
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = lang
-    utterance.rate = 0.92
-
-    utterance.onstart = () => setIsSpeaking(true)
-    utterance.onend = () => setIsSpeaking(false)
-    utterance.onerror = () => setIsSpeaking(false)
-
-    window.speechSynthesis.speak(utterance)
-  }
-
-  const stopSpeaking = () => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel()
-      setIsSpeaking(false)
-    }
-  }
-
-  const playFullNavigationAudio = (dest) => {
-    stopSpeaking()
-    const isTe = voiceLang === 'te-IN'
-    const title = isTe ? `మీరు ${dest.nameTe} కి వెళ్లడానికి మార్గం:` : `Step-by-step directions to ${dest.name}:`
-    
-    let spokenScript = `${title}. `
-    dest.steps.forEach(s => {
-      spokenScript += isTe ? `స్టెప్ ${s.stepNumber}: ${s.textTe}. ` : `Step ${s.stepNumber}: ${s.text}. `
-    })
-
-    speakText(spokenScript, voiceLang)
-  }
-
-  const playSingleStepAudio = (stepObj, destName) => {
-    stopSpeaking()
-    const isTe = voiceLang === 'te-IN'
-    const script = isTe ? `స్టెప్ ${stepObj.stepNumber}: ${stepObj.textTe}` : `Step ${stepObj.stepNumber}: ${stepObj.text}`
-    speakText(script, voiceLang)
-  }
-
   // ---------- PERSISTENT LOGIN HELPER ----------
   const persistLogin = (role, data) => {
     const session = { role, data }
@@ -445,7 +245,6 @@ function App() {
     setStaffLoginError('')
     setOtpSent(false)
     setPatientFullFile(null)
-    stopSpeaking()
     fetchPatientsList()
   }
 
@@ -579,16 +378,6 @@ function App() {
     } catch (err) { setWardMessage(`⚠️ ${err.message}`) }
   }
 
-  const currentDestination = HOSPITAL_DIRECTORY.find(d => d.id === selectedDestinationId) || HOSPITAL_DIRECTORY[0]
-
-  const filteredDirectory = HOSPITAL_DIRECTORY.filter(item => 
-    item.name.toLowerCase().includes(navSearchQuery.toLowerCase()) ||
-    item.nameTe.includes(navSearchQuery) ||
-    item.room.toLowerCase().includes(navSearchQuery.toLowerCase()) ||
-    item.block.toLowerCase().includes(navSearchQuery.toLowerCase()) ||
-    item.category.toLowerCase().includes(navSearchQuery.toLowerCase())
-  )
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: 'Segoe UI, Arial, sans-serif', margin: 0, backgroundColor: '#f8fafc', color: '#0f172a' }}>
       
@@ -628,7 +417,7 @@ function App() {
             <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 'bold', color: '#0f172a', letterSpacing: '-0.5px' }}>
               Chikitsya Setu
             </h1>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px' }}>GANDHI HOSPITAL TRANSPARENCY & WAYFINDING ECOSYSTEM</span>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600', letterSpacing: '0.5px' }}>GANDHI HOSPITAL TRANSPARENCY ECOSYSTEM</span>
           </div>
         </div>
 
@@ -773,34 +562,21 @@ function App() {
           </div>
         )}
 
-        {/* 2. COMPLETE PATIENT PORTAL WITH STEP-BY-STEP HOSPITAL GPS WAYFINDER */}
+        {/* 2. COMPLETE PATIENT EHR PORTAL */}
         {activeView === 'patient' && currentUser?.role === 'patient' && (
-          <div style={{ width: '100%', maxWidth: '920px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
+          <div style={{ width: '100%', maxWidth: '860px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             
             {/* Header Profile */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px' }}>
               <div>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '1px' }}>Electronic Health Record & Wayfinder</span>
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#2563eb', textTransform: 'uppercase', letterSpacing: '1px' }}>Electronic Health Record</span>
                 <h2 style={{ margin: '4px 0 2px 0', color: '#0f172a' }}>{currentUser.data.name}</h2>
                 <span style={{ fontSize: '13px', color: '#64748b' }}>Patient ID: <strong>{currentUser.data.patientId}</strong> | WhatsApp: +91 {currentUser.data.phoneNumber}</span>
-              </div>
-
-              {/* Language Selection for Voice Audio */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Audio Voice:</label>
-                <select style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#f8fafc' }} value={voiceLang} onChange={e => setVoiceLang(e.target.value)}>
-                  <option value="en-IN">English (India)</option>
-                  <option value="te-IN">తెలుగు (Telugu)</option>
-                  <option value="hi-IN">हिन्दी (Hindi)</option>
-                </select>
               </div>
             </div>
 
             {/* Sub-tab Navigation */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-              <button onClick={() => setPatientTab('navigation')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: patientTab === 'navigation' ? '#0f172a' : '#f1f5f9', color: patientTab === 'navigation' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
-                🧭 Step-by-Step Hospital GPS Navigator
-              </button>
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '12px', marginBottom: '24px' }}>
               <button onClick={() => setPatientTab('overview')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: patientTab === 'overview' ? '#0f172a' : '#f1f5f9', color: patientTab === 'overview' ? 'white' : '#475569', fontWeight: '600', cursor: 'pointer', fontSize: '13px' }}>
                 📍 Live Journey Status
               </button>
@@ -814,211 +590,6 @@ function App() {
                 🛏️ Ward & Micro-Resources
               </button>
             </div>
-
-            {/* TAB: STEP-BY-STEP HOSPITAL GPS WAYFINDER */}
-            {patientTab === 'navigation' && (
-              <div>
-                
-                {/* 1-Click Fast Route to Assigned Destination */}
-                <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '18px 20px', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-                  <div>
-                    <span style={{ fontSize: '11px', color: '#1d4ed8', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      📍 Current Visit Next Destination
-                    </span>
-                    <h4 style={{ margin: '2px 0 0 0', color: '#1e40af', fontSize: '16px' }}>
-                      {currentUser.data.currentStatus === 'WAITING_FOR_DOCTOR' && 'Doctor Room 102 (Dr. Ramesh Sharma)'}
-                      {currentUser.data.currentStatus === 'DIAGNOSTICS_ORDERED' && 'Pathology Lab 1 (Room 105 - Blood Tests)'}
-                      {currentUser.data.currentStatus === 'LAB_COMPLETED' && 'Doctor Room 102 (Prescription Review)'}
-                      {currentUser.data.currentStatus === 'PHARMACY_QUEUE' && 'Central Free Pharmacy (Counter #3)'}
-                      {currentUser.data.currentStatus === 'ADMITTED' && 'Male General Ward (Bed 14)'}
-                      {currentUser.data.currentStatus === 'COMPLETED' && 'Main Exit / Gate 1'}
-                    </h4>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      if (currentUser.data.currentStatus === 'DIAGNOSTICS_ORDERED') setSelectedDestinationId('room-105')
-                      else if (currentUser.data.currentStatus === 'PHARMACY_QUEUE') setSelectedDestinationId('pharmacy')
-                      else if (currentUser.data.currentStatus === 'ADMITTED') setSelectedDestinationId('ward-male')
-                      else setSelectedDestinationId('room-102')
-                    }}
-                    style={{
-                      padding: '10px 18px',
-                      backgroundColor: '#2563eb',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontWeight: 'bold',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
-                    }}>
-                    Navigate Here ➔
-                  </button>
-                </div>
-
-                {/* Destination Search & Filter */}
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#334155', display: 'block', marginBottom: '8px' }}>
-                    🔍 Where do you want to go in Gandhi Hospital? (ఎక్కడికి వెళ్ళాలి?)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Search doctor room, blood test lab, x-ray, pharmacy, ward, emergency..."
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                    value={navSearchQuery}
-                    onChange={e => setNavSearchQuery(e.target.value)}
-                  />
-                </div>
-
-                {/* Destination Selection Chips */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
-                  {filteredDirectory.map(dest => (
-                    <button
-                      key={dest.id}
-                      onClick={() => { setSelectedDestinationId(dest.id); stopSpeaking(); }}
-                      style={{
-                        padding: '8px 14px',
-                        borderRadius: '20px',
-                        border: selectedDestinationId === dest.id ? `2px solid ${dest.colorTag}` : '1px solid #e2e8f0',
-                        backgroundColor: selectedDestinationId === dest.id ? '#0f172a' : '#ffffff',
-                        color: selectedDestinationId === dest.id ? 'white' : '#334155',
-                        fontWeight: '600',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: dest.colorTag }}></span>
-                      {voiceLang === 'te-IN' ? dest.nameTe : dest.name}
-                    </button>
-                  ))}
-                </div>
-
-                {/* ACTIVE TURN-BY-TURN NAVIGATION CARD */}
-                {currentDestination && (
-                  <div style={{ backgroundColor: '#ffffff', border: '2px solid #0f172a', borderRadius: '16px', padding: '28px', boxShadow: '0 8px 24px rgba(0,0,0,0.06)' }}>
-                    
-                    {/* Destination Banner */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #f1f5f9', paddingBottom: '16px', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                          <span style={{ padding: '4px 10px', borderRadius: '12px', backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                            {currentDestination.category}
-                          </span>
-                          <span style={{ padding: '4px 10px', borderRadius: '12px', backgroundColor: '#eff6ff', color: '#1d4ed8', fontSize: '11px', fontWeight: 'bold' }}>
-                            📍 {currentDestination.room} • {currentDestination.floor}
-                          </span>
-                        </div>
-                        <h3 style={{ margin: 0, fontSize: '20px', color: '#0f172a' }}>
-                          {voiceLang === 'te-IN' ? currentDestination.nameTe : currentDestination.name}
-                        </h3>
-                        <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '13px' }}>
-                          🏢 {currentDestination.block} | 🟢 Follow: <strong>{currentDestination.lineColor}</strong>
-                        </p>
-                      </div>
-
-                      {/* Full Audio Speaker Button */}
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => playFullNavigationAudio(currentDestination)}
-                          style={{
-                            padding: '10px 18px',
-                            backgroundColor: '#2563eb',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontWeight: 'bold',
-                            fontSize: '13px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 4px 12px rgba(37,99,235,0.3)'
-                          }}>
-                          <span>🔊</span> {voiceLang === 'te-IN' ? 'వాయిస్ గైడ్ వినండి' : 'Play Turn-by-Turn Voice'}
-                        </button>
-
-                        {isSpeaking && (
-                          <button
-                            onClick={stopSpeaking}
-                            style={{
-                              padding: '10px 14px',
-                              backgroundColor: '#ef4444',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '8px',
-                              fontWeight: 'bold',
-                              fontSize: '13px',
-                              cursor: 'pointer'
-                            }}>
-                            ⏹️ Stop
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Step-by-Step Wayfinding Path */}
-                    <div>
-                      <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        🚶 Step-by-Step Wayfinding Route (దశల వారీ మార్గదర్శిని)
-                      </h4>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                        {currentDestination.steps.map((step, idx) => (
-                          <div
-                            key={idx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'flex-start',
-                              gap: '14px',
-                              padding: '14px 16px',
-                              borderRadius: '10px',
-                              backgroundColor: '#f8fafc',
-                              border: '1px solid #e2e8f0'
-                            }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#0f172a', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '14px', flexShrink: 0 }}>
-                              {step.stepNumber}
-                            </div>
-
-                            <div style={{ flex: 1 }}>
-                              <p style={{ margin: 0, fontSize: '14px', color: '#0f172a', lineHeight: '1.5', fontWeight: '500' }}>
-                                {voiceLang === 'te-IN' ? step.textTe : step.text}
-                              </p>
-                            </div>
-
-                            <button
-                              onClick={() => playSingleStepAudio(step, currentDestination.name)}
-                              style={{
-                                background: 'transparent',
-                                border: '1px solid #cbd5e1',
-                                borderRadius: '6px',
-                                padding: '6px 10px',
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                color: '#2563eb',
-                                fontWeight: 'bold'
-                              }}>
-                              🔊 Listen
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                  </div>
-                )}
-
-              </div>
-            )}
 
             {/* TAB: OVERVIEW & LIVE JOURNEY TRACKING */}
             {patientTab === 'overview' && (
@@ -1044,7 +615,23 @@ function App() {
                   <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>Physical Location</div>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#d97706', marginTop: '2px' }}>OPD Block A - Room 102</div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>Ground Floor, Wing 1 (Follow Green Floor Signs)</div>
+                    <div style={{ fontSize: '13px', color: '#64748b' }}>Ground Floor, Wing 1</div>
+                  </div>
+                </div>
+
+                {/* Visual Corridor Path */}
+                <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <strong style={{ fontSize: '14px', color: '#0f172a', display: 'block', marginBottom: '12px' }}>🧭 Physical Route Path (Gandhi Hospital)</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', paddingBottom: '6px', fontSize: '13px' }}>
+                    <span style={{ padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '6px', fontWeight: '600' }}>Entrance Gate</span>
+                    <span>➔</span>
+                    <span style={{ padding: '6px 12px', backgroundColor: '#dbeafe', color: '#1e40af', borderRadius: '6px', fontWeight: 'bold' }}>OPD Block A</span>
+                    <span>➔</span>
+                    <span style={{ padding: '6px 12px', backgroundColor: '#fef3c7', color: '#92400e', borderRadius: '6px', fontWeight: 'bold' }}>Room 102 (Dr. Sharma)</span>
+                    <span>➔</span>
+                    <span style={{ padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '6px' }}>Room 105 (Lab)</span>
+                    <span>➔</span>
+                    <span style={{ padding: '6px 12px', backgroundColor: '#e2e8f0', borderRadius: '6px' }}>Counter 3 (Pharmacy)</span>
                   </div>
                 </div>
               </div>
@@ -1453,7 +1040,7 @@ function App() {
                     gap: '8px',
                     width: '100%',
                     padding: '14px',
-                    backgroundColor: '#25D366',
+                    backgroundColor: '#256366',
                     color: 'white',
                     borderRadius: '8px',
                     textDecoration: 'none',
