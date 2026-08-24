@@ -1132,8 +1132,8 @@ function App() {
             zIndex: 100
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }}>
-              <div style={{ width: '44px', height: '44px', borderRadius: '14px', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', boxShadow: '0 0 24px rgba(37,99,235,0.5)' }}>
-                🏥
+              <div style={{ width: '46px', height: '46px', borderRadius: '14px', overflow: 'hidden', border: '1.5px solid rgba(56, 189, 248, 0.5)', boxShadow: '0 0 20px rgba(56, 189, 248, 0.35)', backgroundColor: '#070e1e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <img src="/logo.jpg" alt="Chikitsya Setu Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div>
                 <h1 style={{ margin: 0, fontSize: '22px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.03em' }}>
@@ -1182,6 +1182,13 @@ function App() {
                 border: '1px solid rgba(56, 189, 248, 0.3)',
                 boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6)'
               }}>
+                {/* Glowing Logo 1 Emblem at the Heart of Hero */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '22px' }}>
+                  <div style={{ width: '92px', height: '92px', borderRadius: '24px', overflow: 'hidden', border: '2px solid rgba(56, 189, 248, 0.6)', boxShadow: '0 0 35px rgba(56, 189, 248, 0.45)', backgroundColor: '#070e1e', padding: '3px' }}>
+                    <img src="/logo.jpg" alt="Chikitsya Setu Core Logo" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '20px' }} />
+                  </div>
+                </div>
+
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 22px', backgroundColor: 'rgba(30, 58, 138, 0.4)', border: '1px solid rgba(59, 130, 246, 0.4)', borderRadius: '9999px', fontSize: '13px', color: '#93c5fd', fontWeight: '800', marginBottom: '22px' }}>
                   <span>👑</span> Sovereign Public Healthcare Transformation Framework
                 </div>
@@ -1435,12 +1442,12 @@ function App() {
           }}>
             
             {/* Sidebar Brand Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', paddingLeft: '6px' }}>
-              <div style={{ width: '38px', height: '38px', borderRadius: '12px', background: `linear-gradient(135deg, ${roleTheme.accent} 0%, #1e1b4b 100%)`, color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', boxShadow: `0 0 16px ${roleTheme.accent}66` }}>
-                {roleTheme.icon}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', paddingLeft: '4px' }}>
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid rgba(56, 189, 248, 0.5)', boxShadow: '0 0 16px rgba(56, 189, 248, 0.3)', backgroundColor: '#070e1e', flexShrink: 0 }}>
+                <img src="/logo.jpg" alt="Chikitsya Setu Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.02em' }}>Chikitsya Setu</h2>
+                <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '800', color: '#ffffff', letterSpacing: '-0.02em' }}>Chikitsya Setu</h2>
                 <span style={{ fontSize: '10px', color: '#38bdf8', fontWeight: '700', letterSpacing: '0.5px' }}>HEALTHCARE PLATFORM</span>
               </div>
             </div>
@@ -3202,8 +3209,15 @@ function App() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(7, 14, 30, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 }}>
           <div className="royal-card animate-fade-in" style={{ backgroundColor: 'white', width: '100%', maxWidth: '480px', borderRadius: '24px', padding: '32px', position: 'relative' }}>
             <button onClick={() => setShowLoginModal(false)} style={{ position: 'absolute', top: '18px', right: '18px', background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px' }}>Portal Authentication</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#64748b' }}>Select your station role to log in:</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', overflow: 'hidden', border: '1.5px solid #1e3a8a', backgroundColor: '#070e1e', flexShrink: 0 }}>
+                <img src="/logo.jpg" alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#070e1e' }}>Chikitsya Setu</h3>
+                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Select your station role to log in</p>
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '18px' }}>
               {[
