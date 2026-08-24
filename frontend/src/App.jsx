@@ -946,21 +946,21 @@ function App() {
   // Role Theme Color Map
   const getRoleTheme = (role) => {
     switch(role) {
-      case 'patient': return { accent: '#2563eb', light: '#eff6ff', border: '#bfdbfe', name: 'Patient Health Portal', icon: '👤' }
-      case 'doctor': return { accent: '#4f46e5', light: '#eef2ff', border: '#c7d2fe', name: 'Doctor Consultation Desk', icon: '👨‍⚕️' }
-      case 'lab': return { accent: '#0284c7', light: '#f0f9ff', border: '#bae6fd', name: 'Diagnostic Laboratory', icon: '🔬' }
-      case 'pharmacy': return { accent: '#059669', light: '#ecfdf5', border: '#a7f3d0', name: 'Pharmacy Dispensary', icon: '💊' }
-      case 'ward': return { accent: '#7c3aed', light: '#f5f3ff', border: '#ddd6fe', name: 'Inpatient Ward Station', icon: '🛏️' }
-      case 'op-desk': return { accent: '#d97706', light: '#fffbeb', border: '#fde68a', name: 'O/P Reception Desk', icon: '🎫' }
-      case 'admin': return { accent: '#e11d48', light: '#fff1f2', border: '#fecdd3', name: 'Executive Administration', icon: '📊' }
-      default: return { accent: '#2563eb', light: '#eff6ff', border: '#bfdbfe', name: 'Chikitsya Setu', icon: '🏥' }
+      case 'patient': return { accent: '#1d4ed8', light: '#eff6ff', border: '#cbd5e1', name: 'Patient Health Portal', icon: '👤' }
+      case 'doctor': return { accent: '#4338ca', light: '#eef2ff', border: '#c7d2fe', name: 'Doctor Consultation Desk', icon: '👨‍⚕️' }
+      case 'lab': return { accent: '#0369a1', light: '#f0f9ff', border: '#bae6fd', name: 'Diagnostic Laboratory', icon: '🔬' }
+      case 'pharmacy': return { accent: '#047857', light: '#ecfdf5', border: '#a7f3d0', name: 'Pharmacy Dispensary', icon: '💊' }
+      case 'ward': return { accent: '#6d28d9', light: '#f5f3ff', border: '#ddd6fe', name: 'Inpatient Ward Station', icon: '🛏️' }
+      case 'op-desk': return { accent: '#b45309', light: '#fffbeb', border: '#fde68a', name: 'O/P Reception Desk', icon: '🎫' }
+      case 'admin': return { accent: '#be123c', light: '#fff1f2', border: '#fecdd3', name: 'Executive Administration', icon: '📊' }
+      default: return { accent: '#1d4ed8', light: '#eff6ff', border: '#cbd5e1', name: 'Chikitsya Setu', icon: '🏥' }
     }
   }
 
   const roleTheme = getRoleTheme(currentUser?.role)
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', color: '#0f172a', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f1f5f9', color: '#070e1e', display: 'flex', flexDirection: 'column' }}>
       
       {/* NOTIFICATION TOAST */}
       {whatsAppNotification && (
@@ -2338,6 +2338,25 @@ function App() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {loginRole === 'op-desk' && (
+              <div>
+                <form onSubmit={handleOpStaffLogin} style={{ marginBottom: '10px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Staff Username:</label>
+                  <input type="text" placeholder="e.g. op_staff" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={opStaffUser} onChange={e => setOpStaffUser(e.target.value)} />
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#334155', display: 'block', marginBottom: '4px' }}>Staff Passcode:</label>
+                  <input type="password" placeholder="Passcode (gandhi2026)" style={{ width: '100%', padding: '10px 14px', borderRadius: '12px', border: '1px solid #cbd5e1', marginBottom: '10px', boxSizing: 'border-box' }} value={opStaffPass} onChange={e => setOpStaffPass(e.target.value)} />
+                  {staffLoginError && <div style={{ color: '#e11d48', fontSize: '12px', marginBottom: '8px' }}>{staffLoginError}</div>}
+                  <button type="submit" style={{ width: '100%', padding: '12px', backgroundColor: '#d97706', color: 'white', border: 'none', borderRadius: '9999px', fontWeight: '800', cursor: 'pointer', fontSize: '13px', marginBottom: '8px' }}>Log In as Staff ➔</button>
+                </form>
+                <div style={{ textAlign: 'center', margin: '6px 0', fontSize: '11px', color: '#94a3b8' }}>— OR —</div>
+                <button 
+                  onClick={() => persistLogin('op-desk', { name: 'O/P Receptionist (Desk #1)', staffId: 'STAFF-OP-01' })}
+                  style={{ width: '100%', padding: '10px', backgroundColor: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', borderRadius: '9999px', fontWeight: '700', fontSize: '12px', cursor: 'pointer' }}>
+                  ⚡ 1-Click Quick Enter as O/P Desk #1
+                </button>
               </div>
             )}
 

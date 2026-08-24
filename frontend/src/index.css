@@ -4,29 +4,24 @@
   --font-main: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   
-  /* Royal Palette */
+  /* Cohesive Royal Palette */
   --royal-navy-dark: #070e1e;
   --royal-navy: #0f1c3f;
-  --royal-navy-light: #182c61;
-  --royal-blue: #2563eb;
-  --royal-blue-glow: rgba(37, 99, 235, 0.25);
+  --royal-navy-light: #1e293b;
+  --royal-blue: #1e40af;
+  --royal-blue-glow: rgba(30, 64, 175, 0.2);
   --royal-sapphire: #1d4ed8;
-  --royal-emerald: #059669;
-  --royal-emerald-glow: rgba(5, 150, 105, 0.25);
-  --royal-gold: #d97706;
-  --royal-gold-glow: rgba(217, 119, 6, 0.25);
-  --royal-ruby: #e11d48;
-  --royal-ruby-glow: rgba(225, 29, 72, 0.25);
-  --royal-violet: #7c3aed;
-  --royal-cyan: #0284c7;
+  --royal-emerald: #047857;
+  --royal-gold: #b45309;
+  --royal-ruby: #be123c;
+  --royal-violet: #6d28d9;
 
   /* App Surfaces */
-  --surface-bg: #f8fafc;
+  --surface-bg: #f1f5f9;
   --surface-card: #ffffff;
-  --surface-card-hover: #ffffff;
-  --border-subtle: #e2e8f0;
-  --border-royal: #cbd5e1;
-  --text-title: #0f172a;
+  --border-subtle: #cbd5e1;
+  --border-royal: #94a3b8;
+  --text-title: #070e1e;
   --text-body: #334155;
   --text-muted: #64748b;
 
@@ -38,9 +33,8 @@
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-card: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
-  --shadow-card-hover: 0 16px 36px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
-  --shadow-royal-blue: 0 10px 28px -4px rgba(37, 99, 235, 0.3);
+  --shadow-card: 0 4px 18px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  --shadow-card-hover: 0 14px 32px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.05);
 }
 
 body {
@@ -60,13 +54,14 @@ body {
 
 h1, h2, h3, h4, .font-display {
   font-family: var(--font-display);
+  color: var(--text-title);
 }
 
 /* Animations */
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -74,38 +69,24 @@ h1, h2, h3, h4, .font-display {
   }
 }
 
-@keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 0 8px rgba(37, 99, 235, 0);
-  }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
 .animate-fade-in {
-  animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Interactive Animated Card */
+/* Royal Cards */
 .royal-card {
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
 
 .royal-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-card-hover);
-  border-color: #cbd5e1;
+  border-color: #94a3b8;
 }
 
 .royal-card-interactive {
@@ -113,23 +94,23 @@ h1, h2, h3, h4, .font-display {
 }
 
 .royal-card-interactive:hover {
-  transform: translateY(-4px) scale(1.006);
+  transform: translateY(-3px) scale(1.004);
   box-shadow: var(--shadow-card-hover);
-  border-color: var(--royal-blue);
+  border-color: #1e40af;
 }
 
-/* Custom Buttons */
+/* Buttons */
 button {
   font-family: var(--font-main);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 button:hover {
-  transform: translateY(-1.5px);
+  transform: translateY(-1px);
 }
 
 button:active {
-  transform: translateY(0.5px);
+  transform: translateY(0);
 }
 
 /* Input Fields */
@@ -140,8 +121,8 @@ input, select, textarea {
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: var(--royal-blue) !important;
-  box-shadow: 0 0 0 3px var(--royal-blue-glow) !important;
+  border-color: #1e40af !important;
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15) !important;
 }
 
 /* Scrollbars */
