@@ -29,14 +29,16 @@ function App() {
   const [otpInfo, setOtpInfo] = useState(null)
   const [otpError, setOtpError] = useState('')
   const [patientFullFile, setPatientFullFile] = useState(null)
-  const [patientTab, setPatientTab] = useState('overview') // 'overview' | 'labs' | 'medicines' | 'admissions' | 'voice-guide'
+  const [patientTab, setPatientTab] = useState('overview') // 'overview' | 'labs' | 'medicines' | 'admissions'
 
-  // ---------- VOICE & SPEAKER NAVIGATION STATE ----------
+  // ---------- AI VOICE & SPEAKER NAVIGATION STATE ----------
   const [voiceLang, setVoiceLang] = useState('en-IN') // 'en-IN' | 'te-IN' | 'hi-IN'
   const [isListening, setIsListening] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
+  const [isAiLoading, setIsAiLoading] = useState(false)
   const [userVoiceQuery, setUserVoiceQuery] = useState('')
   const [voiceAssistantResponse, setVoiceAssistantResponse] = useState('')
+  const [customTextQuery, setCustomTextQuery] = useState('')
 
   // ---------- DOCTOR STATE ----------
   const [doctorsList, setDoctorsList] = useState([])
@@ -155,16 +157,13 @@ function App() {
     } catch (err) { console.error(err) }
   }
 
-  // ---------- SPEAKER / TEXT-TO-SPEECH ----------
+  // ---------- SPEAKER & TEXT-TO-SPEECH ----------
   const speakText = (text, lang = voiceLang) => {
-    if (!('speechSynthesis' in window)) {
-      alert('Speech synthesis is not supported on your browser.')
-      return
-    }
-    window.speechSynthesis.cancel() // cancel any existing speech
+    if (!('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel() // Stop any previous speech immediately
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = lang
-    utterance.rate = 0.92
+    utterance.rate = 0.95
 
     utterance.onstart = () => setIsSpeaking(true)
     utterance.onend = () => setIsSpeaking(false)
@@ -180,54 +179,30 @@ function App() {
     }
   }
 
-  const playNavigationDirections = () => {
-    if (!currentUser || currentUser.role !== 'patient') return
+  // ---------- AI ASSISTANT DISPATCH (REAL AI REASONING) ----------
+  const sendQueryToAI = async (queryText) => {
+    if (!queryText || !queryText.trim()) return
+    setUserVoiceQuery(queryText)
+    setIsAiLoading(true)
+    stopSpeaking()
 
-    const docName = patientFullFile?.doctor?.name || currentUser.data.assignedDoctor?.name || 'Dr. Ramesh Sharma'
-    const status = currentUser.data.currentStatus
+    try {
+      const res = await axios.post(`${API_BASE}/hospital/ai-assistant`, {
+        patientId: currentUser?.data?.patientId,
+        query: queryText,
+        language: voiceLang
+      })
 
-    let message = ''
-    if (voiceLang === 'te-IN') {
-      // Telugu Voice Direction
-      if (status === 'WAITING_FOR_DOCTOR') {
-        message = `నమస్కారం ${currentUser.data.name}. మీ డాక్టర్ ${docName}. దయచేసి గ్రౌండ్ ఫ్లోర్ వింగ్ 1 లోని రూమ్ నంబర్ 102 కి వెళ్లండి.`
-      } else if (status === 'DIAGNOSTICS_ORDERED') {
-        message = `మీ రక్త పరీక్షల కోసం రూమ్ నంబర్ 105 పాథాలజీ ల్యాబ్‌కి వెళ్లండి.`
-      } else if (status === 'PHARMACY_QUEUE') {
-        message = `మీ మందుల కోసం గ్రౌండ్ ఫ్లోర్ ఫార్మసీ కౌంటర్ నంబర్ 3 కి వెళ్లండి.`
-      } else {
-        message = `మీ చెకప్ పూర్తయింది. గాంధీ హాస్పిటల్ సేవలు ఉపయోగించినందుకు ధన్యవాదాలు.`
-      }
-    } else if (voiceLang === 'hi-IN') {
-      // Hindi Voice Direction
-      if (status === 'WAITING_FOR_DOCTOR') {
-        message = `नमस्ते ${currentUser.data.name}. आपके डॉक्टर ${docName} हैं। कृपया ग्राउंड फ्लोर विंग 1 के रूम नंबर 102 में जाएं।`
-      } else if (status === 'DIAGNOSTICS_ORDERED') {
-        message = `कृपया ब्लड टेस्ट के लिए रूम नंबर 105 पैथोलॉजी लैब में जाएं।`
-      } else if (status === 'PHARMACY_QUEUE') {
-        message = `कृपया अपनी दवाएं लेने के लिए फार्मेसी काउंटर नंबर 3 पर जाएं।`
-      } else {
-        message = `आपका चेकअप पूरा हो चुका है। गांधी अस्पताल में आपका दिन शुभ हो।`
-      }
-    } else {
-      // English Voice Direction
-      if (status === 'WAITING_FOR_DOCTOR') {
-        message = `Hello ${currentUser.data.name}. Your assigned physician is ${docName} in General Medicine. Please proceed directly to Room 102 on the Ground Floor, OPD Block A, Wing 1.`
-      } else if (status === 'DIAGNOSTICS_ORDERED') {
-        message = `Attention ${currentUser.data.name}. Diagnostic tests have been ordered. Please walk to Pathology Laboratory Room 105 across the corridor for sample collection.`
-      } else if (status === 'LAB_COMPLETED') {
-        message = `Your laboratory reports are published digitally on your phone. Please return to Doctor Room 102 for your medical prescription.`
-      } else if (status === 'PHARMACY_QUEUE') {
-        message = `Your medicines are prescribed. Please proceed to Pharmacy Counter Number 3 near the main exit for free medicine dispensing.`
-      } else if (status === 'ADMITTED') {
-        message = `You are admitted to Inpatient General Ward Bed 14. The nursing station is located at the entrance of Block B.`
-      } else {
-        message = `Your visit is complete. All reports and prescriptions are safely stored in your digital health file.`
-      }
+      const aiAnswer = res.data.answer
+      setVoiceAssistantResponse(aiAnswer)
+      setIsAiLoading(false)
+      speakText(aiAnswer, voiceLang)
+    } catch (err) {
+      setIsAiLoading(false)
+      const fallback = `I could not connect to hospital navigator. Please proceed to Doctor Room 102.`
+      setVoiceAssistantResponse(fallback)
+      speakText(fallback, voiceLang)
     }
-
-    setVoiceAssistantResponse(message)
-    speakText(message, voiceLang)
   }
 
   // ---------- MICROPHONE / SPEECH-TO-TEXT ----------
@@ -249,14 +224,14 @@ function App() {
 
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript
-        setUserVoiceQuery(transcript)
-        resolveVoiceQuery(transcript)
+        setIsListening(false)
+        sendQueryToAI(transcript)
       }
 
       recognition.onerror = (event) => {
         setIsListening(false)
         console.error('Speech recognition error:', event.error)
-        setUserVoiceQuery(`Could not hear clearly (${event.error}). Please tap again.`)
+        setUserVoiceQuery(`Could not capture audio (${event.error}). Please try again.`)
       }
 
       recognition.onend = () => {
@@ -268,33 +243,6 @@ function App() {
       setIsListening(false)
       console.error(err)
     }
-  }
-
-  const resolveVoiceQuery = (queryText) => {
-    const q = queryText.toLowerCase()
-    const docName = patientFullFile?.doctor?.name || currentUser?.data?.assignedDoctor?.name || 'Dr. Ramesh Sharma'
-    let answer = ''
-
-    if (q.includes('doctor') || q.includes('room') || q.includes('dr') || q.includes('డాక్టర్') || q.includes('डॉक्टर')) {
-      answer = `Your assigned doctor is ${docName} located in OPD Block A, Room 102 on the Ground Floor.`
-    } else if (q.includes('lab') || q.includes('blood') || q.includes('test') || q.includes('ల్యాబ్') || q.includes('రక్తం') || q.includes('टेस्ट')) {
-      answer = `Pathology Lab 1 is located in Room 105, directly across from OPD Block A. No fees or bribes are required.`
-    } else if (q.includes('medicine') || q.includes('pharmacy') || q.includes('tablet') || q.includes('మందులు') || q.includes('दवा')) {
-      answer = `Pharmacy Counter Number 3 is on the Ground Floor near the main hospital exit. Hand over your Patient ID to receive your prescribed medicines.`
-    } else if (q.includes('xray') || q.includes('x-ray') || q.includes('scan') || q.includes('ఎక్స్రే') || q.includes('एक्सरे')) {
-      answer = `Radiology and X-Ray unit is in Room 110 on the 1st Floor (Elevator available at Wing 2).`
-    } else if (q.includes('cost') || q.includes('fee') || q.includes('money') || q.includes('bribe') || q.includes('డబ్బులు') || q.includes('ఫీజు') || q.includes('पैसा')) {
-      answer = `All consultations, diagnostic lab tests, and medicines at Gandhi Hospital are 100% FREE under government policy. Zero cash payment is required.`
-    } else if (q.includes('water') || q.includes('toilet') || q.includes('washroom') || q.includes('నీళ్లు') || q.includes('पानी')) {
-      answer = `Drinking water stations and clean washrooms are available next to Room 104 and outside each ward entrance.`
-    } else if (q.includes('emergency') || q.includes('icu') || q.includes('casualty') || q.includes('ఎమర్జెన్సీ')) {
-      answer = `Emergency Casualty is open 24/7 at Block E Ground Floor with dedicated trauma response teams.`
-    } else {
-      answer = `I heard: "${queryText}". For your visit, proceed to Doctor Room 102 in Block A. You can also ask me about blood test labs, pharmacy counter, or hospital navigation.`
-    }
-
-    setVoiceAssistantResponse(answer)
-    speakText(answer, voiceLang)
   }
 
   // ---------- AUTH HANDLERS ----------
@@ -381,6 +329,7 @@ function App() {
     setPatientFullFile(null)
     setUserVoiceQuery('')
     setVoiceAssistantResponse('')
+    setCustomTextQuery('')
     stopSpeaking()
     fetchPatientsList()
   }
@@ -741,7 +690,7 @@ function App() {
           </div>
         )}
 
-        {/* 2. COMPLETE PATIENT PORTAL WITH VOICE & SPEAKER NAVIGATION */}
+        {/* 2. COMPLETE PATIENT PORTAL WITH AI VOICE & SPEAKER ASSISTANT */}
         {activeView === 'patient' && currentUser?.role === 'patient' && (
           <div style={{ width: '100%', maxWidth: '860px', backgroundColor: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
             
@@ -755,7 +704,7 @@ function App() {
 
               {/* Language Selection for Voice */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Voice Lang:</label>
+                <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b' }}>Language:</label>
                 <select style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', backgroundColor: '#f8fafc' }} value={voiceLang} onChange={e => setVoiceLang(e.target.value)}>
                   <option value="en-IN">English (India)</option>
                   <option value="te-IN">తెలుగు (Telugu)</option>
@@ -764,14 +713,14 @@ function App() {
               </div>
             </div>
 
-            {/* AAROGYA VAANI VOICE & SPEAKER ASSISTANT CARD */}
+            {/* AAROGYA VAANI - REAL AI CONVERSATIONAL ASSISTANT */}
             <div style={{ backgroundColor: '#0f172a', color: 'white', padding: '24px', borderRadius: '16px', marginBottom: '24px', boxShadow: '0 8px 24px rgba(15, 23, 42, 0.15)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '24px' }}>🎙️</span>
+                  <span style={{ fontSize: '24px' }}>🤖</span>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '16px', color: 'white' }}>Aarogya Vaani (Hospital Voice & Audio Navigator)</h3>
-                    <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>Speak to ask directions or listen to real-time navigation guidance.</p>
+                    <h3 style={{ margin: 0, fontSize: '16px', color: 'white' }}>Aarogya Vaani (Hospital AI Voice & Audio Navigator)</h3>
+                    <p style={{ margin: 0, fontSize: '12px', color: '#94a3b8' }}>Ask any hospital doubt in your voice, and AI answers dynamically tailored to your live visit.</p>
                   </div>
                 </div>
 
@@ -785,7 +734,8 @@ function App() {
               {/* Action Buttons: Speaker & Mic */}
               <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
                 <button
-                  onClick={playNavigationDirections}
+                  onClick={() => sendQueryToAI('What is my next step and where should I go now?')}
+                  disabled={isAiLoading}
                   style={{
                     flex: 1,
                     display: 'flex',
@@ -802,12 +752,12 @@ function App() {
                     cursor: 'pointer',
                     boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
                   }}>
-                  <span>🔊</span> Listen to Navigation Directions
+                  <span>🔊</span> Listen to My Next Step Directions
                 </button>
 
                 <button
                   onClick={startVoiceRecognition}
-                  disabled={isListening}
+                  disabled={isListening || isAiLoading}
                   style={{
                     flex: 1,
                     display: 'flex',
@@ -822,25 +772,69 @@ function App() {
                     fontWeight: 'bold',
                     fontSize: '14px',
                     cursor: 'pointer',
-                    animation: isListening ? 'pulse 1.5s infinite' : 'none',
                     boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)'
                   }}>
-                  <span>{isListening ? '🔴' : '🎙️'}</span> {isListening ? 'Listening to your voice...' : 'Tap Mic & Ask a Question'}
+                  <span>{isListening ? '🔴' : '🎙️'}</span> {isListening ? 'Listening to your voice...' : 'Tap Mic & Ask Anything'}
                 </button>
               </div>
 
-              {/* Voice Dialogue Transcript Display */}
-              {(userVoiceQuery || voiceAssistantResponse) && (
-                <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', padding: '14px', borderRadius: '10px', fontSize: '13px', border: '1px solid rgba(255,255,255,0.15)' }}>
+              {/* Suggestive AI Quick Prompts */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '11px', color: '#94a3b8', width: '100%' }}>Quick AI Inquiries:</span>
+                {[
+                  { label: '👨‍⚕️ Where is my doctor & cabin?', q: 'Where is my doctor and which room should I go?' },
+                  { label: '🧪 Where is the blood test lab?', q: 'Where is the pathology lab for blood test and what is the room number?' },
+                  { label: '💊 What are my medicines & pharmacy?', q: 'What medicines did the doctor prescribe and where is the pharmacy?' },
+                  { label: '💰 Do I need to pay any fee or bribe?', q: 'Is there any fee or charge for consultation and lab tests?' },
+                  { label: '🚨 Where is Emergency Casualty?', q: 'Where is the 24/7 Emergency Casualty unit?' }
+                ].map((chip, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => sendQueryToAI(chip.q)}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      color: '#e2e8f0',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '20px',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}>
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Text Input Option for Typing */}
+              <form onSubmit={(e) => { e.preventDefault(); sendQueryToAI(customTextQuery); setCustomTextQuery(''); }} style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+                <input
+                  type="text"
+                  placeholder="Or type your question here (e.g. Where is Room 105 / What is my queue?)..."
+                  style={{ flex: 1, padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', fontSize: '13px' }}
+                  value={customTextQuery}
+                  onChange={e => setCustomTextQuery(e.target.value)}
+                />
+                <button type="submit" style={{ padding: '10px 18px', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}>
+                  Ask AI ➔
+                </button>
+              </form>
+
+              {/* Dynamic AI Response Card */}
+              {(isAiLoading || userVoiceQuery || voiceAssistantResponse) && (
+                <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', padding: '16px', borderRadius: '12px', fontSize: '13px', border: '1px solid rgba(255,255,255,0.15)' }}>
                   {userVoiceQuery && (
                     <div style={{ marginBottom: '8px', color: '#93c5fd' }}>
                       <strong>🗣️ You Asked:</strong> "{userVoiceQuery}"
                     </div>
                   )}
-                  {voiceAssistantResponse && (
-                    <div style={{ color: '#86efac', lineHeight: '1.4' }}>
-                      <strong>🤖 Hospital Voice Guide:</strong> {voiceAssistantResponse}
-                    </div>
+                  {isAiLoading ? (
+                    <div style={{ color: '#facc15' }}>⏳ Aarogya Vaani is analyzing your hospital records...</div>
+                  ) : (
+                    voiceAssistantResponse && (
+                      <div style={{ color: '#86efac', lineHeight: '1.5' }}>
+                        <strong>🤖 AI Hospital Navigator:</strong> {voiceAssistantResponse}
+                      </div>
+                    )
                   )}
                 </div>
               )}
