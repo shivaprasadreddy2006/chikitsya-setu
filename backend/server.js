@@ -18,6 +18,7 @@ const pharmacyRoutes = require('./routes/pharmacyRoutes');
 const admissionRoutes = require('./routes/admissionRoutes');
 const referralRoutes = require('./routes/referralRoutes');
 const hospitalRoutes = require('./routes/hospitalRoutes');
+const grievanceRoutes = require('./routes/grievanceRoutes');
 
 app.use('/api/patients', patientRoutes);
 app.use('/api/doctors', doctorRoutes);
@@ -26,6 +27,7 @@ app.use('/api/pharmacy', pharmacyRoutes);
 app.use('/api/admissions', admissionRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/hospital', hospitalRoutes);
+app.use('/api/grievances', grievanceRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
