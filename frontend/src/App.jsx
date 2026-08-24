@@ -866,11 +866,54 @@ function App() {
             </form>
 
             {opTicket && (
-              <div style={{ marginTop: '20px', padding: '16px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px' }}>
-                <strong>✅ Registered: {opTicket.patient.name} ({opTicket.credentials.patientId})</strong>
-                <div style={{ fontSize: '13px', color: '#166534', marginTop: '4px' }}>
-                  Passcode: {opTicket.credentials.password} | Assigned to {opTicket.assignedTo.doctorName}
+              <div style={{ marginTop: '20px', padding: '20px', backgroundColor: '#f0fdf4', border: '2px dashed #22c55e', borderRadius: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '20px' }}>✅</span>
+                  <strong style={{ color: '#15803d', fontSize: '16px' }}>Patient Registered Successfully!</strong>
                 </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', backgroundColor: 'white', padding: '14px', borderRadius: '8px', border: '1px solid #bbf7d0', marginBottom: '16px' }}>
+                  <div>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Patient ID</span>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a' }}>{opTicket.credentials.patientId}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Passcode</span>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#2563eb' }}>{opTicket.credentials.password}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Assigned Doctor</span>
+                    <div style={{ fontWeight: '600', color: '#0f172a' }}>{opTicket.assignedTo.doctorName}</div>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>Room</span>
+                    <div style={{ fontWeight: '600', color: '#d97706' }}>Room 102</div>
+                  </div>
+                </div>
+
+                {/* Direct 100% Free WhatsApp Dispatch Button */}
+                <a 
+                  href={`https://api.whatsapp.com/send?phone=91${opTicket.patient.phoneNumber.replace(/[^0-9]/g, '').slice(-10)}&text=${encodeURIComponent(`🏥 *Chikitsya Setu (Gandhi Hospital)*\nHello *${opTicket.patient.name}*!\nYour O/P Registration is complete.\n\n🆔 *Patient ID:* ${opTicket.credentials.patientId}\n🔑 *Passcode:* ${opTicket.credentials.password}\n👨‍⚕️ *Assigned Doctor:* ${opTicket.assignedTo.doctorName} (Room 102)\n\n📲 *Track your visit live:* http://localhost:5173`)}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '14px',
+                    backgroundColor: '#25D366',
+                    color: 'white',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                    boxShadow: '0 4px 12px rgba(37,211,102,0.3)',
+                    boxSizing: 'border-box'
+                  }}>
+                  <span>💬</span> Send via WhatsApp to Patient (+91 {opTicket.patient.phoneNumber.replace(/[^0-9]/g, '').slice(-10)})
+                </a>
               </div>
             )}
           </div>
