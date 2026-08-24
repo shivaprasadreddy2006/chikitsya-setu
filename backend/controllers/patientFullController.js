@@ -5,6 +5,15 @@ const Prescription = require('../models/Prescription');
 const Referral = require('../models/Referral');
 const Admission = require('../models/Admission');
 
+const DEPARTMENT_ROOM_MAP = {
+    'General Medicine': { room: 'Room 102', block: 'OPD Block A (Ground Floor, Wing 1)' },
+    'Cardiology': { room: 'Room 201', block: 'Specialty Wing C (2nd Floor)' },
+    'Orthopedics': { room: 'Room 204', block: 'Trauma Wing (2nd Floor)' },
+    'Pulmonology': { room: 'Room 302', block: 'Chest Clinic (3rd Floor)' },
+    'Nephrology': { room: 'Room 401', block: 'Dialysis Unit (4th Floor)' },
+    'General Surgery': { room: 'Room 108', block: 'Surgical Block (1st Floor)' }
+};
+
 // 1. Unified Complete Medical History & Chronological Journey Timeline
 exports.getPatientFullFile = async (req, res) => {
     try {
@@ -13,13 +22,25 @@ exports.getPatientFullFile = async (req, res) => {
         const patient = await Patient.findOne({ patientId: patientId.toUpperCase() });
         if (!patient) return res.status(404).json({ message: "Patient not found" });
 
-        const [doctor, labRequests, prescriptions, referrals, admission] = await Promise.all([
-            Doctor.findOne({ doctorId: patient.assignedDoctorId }),
+        const [doctorsList, labRequests, prescriptions, referrals, admission] = await Promise.all([
+            Doctor.find(),
             LabRequest.find({ patientId: patient.patientId }).sort({ createdAt: 1 }),
             Prescription.find({ patientId: patient.patientId }).sort({ createdAt: 1 }),
             Referral.find({ patientId: patient.patientId }).sort({ createdAt: 1 }),
             Admission.findOne({ patientId: patient.patientId }).sort({ createdAt: -1 })
         ]);
+
+        // Resolve active doctor
+        let doctor = doctorsList.find(d => d.doctorId === patient.assignedDoctorId);
+        if (!doctor && referrals.length > 0) {
+            const lastRef = referrals[referrals.length - 1];
+            doctor = doctorsList.find(d => d.doctorId === lastRef.toDoctorId || d.department === lastRef.toDepartment);
+        }
+        if (!doctor) {
+            doctor = doctorsList.find(d => d.department === 'General Medicine') || { name: 'Dr. Ramesh Sharma', department: 'General Medicine', doctorId: 'DR-GEN-01' };
+        }
+
+        const docLoc = DEPARTMENT_ROOM_MAP[doctor.department] || { room: 'Room 102', block: 'OPD Block A (Ground Floor)' };
 
         // Synthesize Complete Chronological Journey Milestones
         const timeline = [];
@@ -29,7 +50,7 @@ exports.getPatientFullFile = async (req, res) => {
             id: 'reg-01',
             stage: 'O/P Registration',
             timestamp: patient.createdAt,
-            details: `Registered at Gandhi Hospital O/P Reception. Assigned to ${doctor ? doctor.name : 'Physician'} (${doctor ? doctor.department : 'General Medicine'}, Room 102).`,
+            details: `Registered at Gandhi Hospital O/P Reception. Assigned to Initial Physician (Room 102, OPD Block A).`,
             performedBy: 'O/P Desk Staff',
             status: 'COMPLETED',
             badgeBg: '#f0fdf4',
@@ -43,7 +64,7 @@ exports.getPatientFullFile = async (req, res) => {
                 id: `lab-order-${idx}`,
                 stage: `Diagnostic Test Ordered: ${lab.testName}`,
                 timestamp: lab.createdAt,
-                details: `Dispatched to ${lab.labRoom} by ${doctor ? doctor.name : 'Physician'}. Clinical Notes: ${lab.notes || 'Routine checkup'}`,
+                details: `Dispatched to ${lab.labRoom}. Clinical Notes: ${lab.notes || 'Routine checkup'}`,
                 performedBy: doctor ? doctor.name : 'Doctor',
                 status: 'ORDERED',
                 badgeBg: '#eff6ff',
@@ -109,13 +130,17 @@ exports.getPatientFullFile = async (req, res) => {
             }
         });
 
-        // Milestone 4: Referrals
+        // Milestone 4: Referrals with full Doctor Name and Room Number
         referrals.forEach((ref, idx) => {
+            const specDoc = doctorsList.find(d => d.doctorId === ref.toDoctorId || d.department === ref.toDepartment);
+            const specName = ref.toDoctorName || (specDoc ? specDoc.name : `Specialist (${ref.toDepartment})`);
+            const loc = DEPARTMENT_ROOM_MAP[ref.toDepartment] || { room: 'Room 201', block: 'Specialty Wing' };
+
             timeline.push({
                 id: `ref-${idx}`,
-                stage: `Super-Specialty Referral: ${ref.toDepartment}`,
+                stage: `Super-Specialty Referral: ${ref.toDepartment} (${specName})`,
                 timestamp: ref.createdAt,
-                details: `Referred by ${ref.fromDoctorName || 'Physician'}. Clinical Reason: "${ref.reason}"`,
+                details: `Referred by ${ref.fromDoctorName || 'Referring Doctor'} ➔ Assigned Specialist: ${specName} (${loc.room}, ${loc.block}). Reason: "${ref.reason}"`,
                 performedBy: ref.fromDoctorName || 'Doctor',
                 status: 'REFERRED',
                 badgeBg: '#fef2f2',
@@ -175,6 +200,7 @@ exports.getPatientFullFile = async (req, res) => {
         res.status(200).json({
             patient,
             doctor,
+            doctorLocation: docLoc,
             labRequests,
             prescriptions,
             referrals,
@@ -238,6 +264,21 @@ exports.getHospitalAuditTrail = async (req, res) => {
                 patientName: p.name,
                 status: p.currentStatus,
                 color: '#16a34a'
+            });
+        });
+
+        // Referrals with Doctor and Room
+        referrals.forEach(ref => {
+            const loc = DEPARTMENT_ROOM_MAP[ref.toDepartment] || { room: 'Room 201', block: 'Specialty Wing' };
+            allLogs.push({
+                type: 'REFERRAL',
+                title: `Specialist Referral: ${ref.toDepartment}`,
+                timestamp: ref.createdAt,
+                details: `Patient: ${ref.patientId} | From: ${ref.fromDoctorName} ➔ Assigned to: ${ref.toDoctorName || ref.toDepartment} (${loc.room}, ${loc.block}) | Reason: "${ref.reason}"`,
+                actor: ref.fromDoctorName,
+                patientId: ref.patientId,
+                status: 'REFERRED',
+                color: '#dc2626'
             });
         });
 
@@ -338,7 +379,7 @@ exports.getHospitalAuditTrail = async (req, res) => {
         });
 
         // Sort all logs by Date & Time (Latest First)
-        allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        allLogs.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
         // Group by Date for Date-wise Statistics
         const dateBreakdown = {};
@@ -349,10 +390,11 @@ exports.getHospitalAuditTrail = async (req, res) => {
                 year: 'numeric'
             });
             if (!dateBreakdown[dateStr]) {
-                dateBreakdown[dateStr] = { date: dateStr, count: 0, registrations: 0, labs: 0, prescriptions: 0, admissions: 0 };
+                dateBreakdown[dateStr] = { date: dateStr, count: 0, registrations: 0, referrals: 0, labs: 0, prescriptions: 0, admissions: 0 };
             }
             dateBreakdown[dateStr].count += 1;
             if (log.type === 'REGISTRATION') dateBreakdown[dateStr].registrations += 1;
+            if (log.type === 'REFERRAL') dateBreakdown[dateStr].referrals += 1;
             if (log.type.startsWith('LAB')) dateBreakdown[dateStr].labs += 1;
             if (log.type.startsWith('PRESCRIPTION') || log.type.startsWith('PHARMACY')) dateBreakdown[dateStr].prescriptions += 1;
             if (log.type.startsWith('ADMISSION') || log.type.startsWith('RESOURCE')) dateBreakdown[dateStr].admissions += 1;

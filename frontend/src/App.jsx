@@ -467,10 +467,18 @@ function App() {
     } catch (err) { setWardMessage(`⚠️ ${err.message}`) }
   }
 
-  // Helper to get active department location
-  const activeDoctorDept = patientFullFile?.doctor?.department || currentUser?.data?.assignedDoctor?.department || 'General Medicine'
-  const activeDoctorLocation = DEPARTMENT_LOCATIONS[activeDoctorDept] || { room: 'Room 102', block: 'OPD Block A' }
-  const latestReferral = patientFullFile?.referrals && patientFullFile.referrals.length > 0 ? patientFullFile.referrals[patientFullFile.referrals.length - 1] : null
+  // Smart resolution of active assigned doctor & physical location
+  const latestReferral = patientFullFile?.referrals && patientFullFile.referrals.length > 0 
+    ? patientFullFile.referrals[patientFullFile.referrals.length - 1] 
+    : null
+
+  const resolvedDoctor = patientFullFile?.doctor || doctorsList.find(d => 
+    d.doctorId === (patientFullFile?.patient?.assignedDoctorId || currentUser?.data?.assignedDoctorId)
+  )
+
+  const activeDoctorName = resolvedDoctor?.name || latestReferral?.toDoctorName || 'Dr. Suresh Patel'
+  const activeDoctorDept = resolvedDoctor?.department || latestReferral?.toDepartment || 'Orthopedics'
+  const activeDoctorLocation = patientFullFile?.doctorLocation || DEPARTMENT_LOCATIONS[activeDoctorDept] || { room: 'Room 204', block: 'Trauma Wing (2nd Floor)' }
 
   // Filter Doctor Patients based on view (waiting queue, all assigned, date-wise)
   const displayedDoctorPatients = (() => {
@@ -718,16 +726,16 @@ function App() {
                 {latestReferral && (
                   <div style={{ backgroundColor: '#fef2f2', border: '2px dashed #ef4444', padding: '16px 20px', borderRadius: '12px', marginBottom: '20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '18px' }}>🔄</span>
-                      <strong style={{ color: '#b91c1c', fontSize: '15px' }}>
-                        Specialist Referral Active: {latestReferral.toDepartment} Department
+                      <span style={{ fontSize: '20px' }}>🔄</span>
+                      <strong style={{ color: '#b91c1c', fontSize: '16px' }}>
+                        Specialist Referral Active: {activeDoctorDept} Department
                       </strong>
                     </div>
-                    <p style={{ margin: '0 0 6px 0', fontSize: '13px', color: '#7f1d1d', lineHeight: '1.4' }}>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#7f1d1d', lineHeight: '1.4' }}>
                       <strong>Referred By:</strong> {latestReferral.fromDoctorName} • <strong>Clinical Reason:</strong> "{latestReferral.reason}"
                     </p>
-                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#991b1b' }}>
-                      ➔ Automatically assigned to <strong>{latestReferral.toDoctorName || patientFullFile?.doctor?.name}</strong> ({activeDoctorLocation.room}, {activeDoctorLocation.block}) based on shortest queue.
+                    <div style={{ backgroundColor: 'white', padding: '10px 14px', borderRadius: '8px', border: '1px solid #fecaca', fontSize: '13px', fontWeight: 'bold', color: '#991b1b' }}>
+                      ➔ Assigned Specialist: <strong>{activeDoctorName}</strong> ({activeDoctorDept}) • 📍 <strong>{activeDoctorLocation.room}</strong> ({activeDoctorLocation.block})
                     </div>
                   </div>
                 )}
@@ -737,9 +745,7 @@ function App() {
                   <span style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', fontWeight: 'bold' }}>Current Action Required</span>
                   <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2563eb', marginTop: '4px' }}>
                     {currentUser.data.currentStatus === 'WAITING_FOR_DOCTOR' && (
-                      latestReferral 
-                        ? `🔄 Proceed to ${activeDoctorLocation.room} for ${latestReferral.toDepartment} Specialist Consultation (${patientFullFile?.doctor?.name || latestReferral.toDoctorName})`
-                        : `⏳ Please proceed to Doctor ${activeDoctorLocation.room} (${patientFullFile?.doctor?.name || 'Dr. Ramesh Sharma'})`
+                      `⏳ Please proceed to ${activeDoctorLocation.room} for consultation with ${activeDoctorName} (${activeDoctorDept})`
                     )}
                     {currentUser.data.currentStatus === 'DIAGNOSTICS_ORDERED' && '🧪 Proceed to Laboratory Room 105 for Sample Collection'}
                     {currentUser.data.currentStatus === 'LAB_COMPLETED' && '📋 Lab reports ready! Return to Doctor for Prescription'}
@@ -751,21 +757,22 @@ function App() {
 
                 {/* Assigned Doctor & Location Card */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
-                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>Assigned Physician</div>
-                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a', marginTop: '2px' }}>
-                      {patientFullFile?.doctor?.name || currentUser.data.assignedDoctor?.name || 'Dr. Ramesh Sharma'}
+                  <div style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
+                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Assigned Physician</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#0f172a', marginTop: '4px' }}>
+                      👨‍⚕️ {activeDoctorName}
                     </div>
-                    <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: '600' }}>
-                      {patientFullFile?.doctor?.department || currentUser.data.assignedDoctor?.department || 'General Medicine'}
+                    <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold', marginTop: '2px' }}>
+                      Department: {activeDoctorDept}
                     </div>
                   </div>
-                  <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>Physical Location</div>
-                    <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#d97706', marginTop: '2px' }}>
-                      {activeDoctorLocation.room}
+
+                  <div style={{ padding: '18px', border: '1px solid #e2e8f0', borderRadius: '10px', backgroundColor: '#f8fafc' }}>
+                    <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Physical Room & Floor</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d97706', marginTop: '4px' }}>
+                      📍 {activeDoctorLocation.room}
                     </div>
-                    <div style={{ fontSize: '13px', color: '#64748b' }}>
+                    <div style={{ fontSize: '13px', color: '#475569', fontWeight: '600', marginTop: '2px' }}>
                       {activeDoctorLocation.block}
                     </div>
                   </div>
@@ -1500,7 +1507,7 @@ function App() {
                 />
 
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  {['ALL', 'REGISTRATION', 'LAB', 'PRESCRIPTION', 'ADMISSION'].map(type => (
+                  {['ALL', 'REGISTRATION', 'REFERRAL', 'LAB', 'PRESCRIPTION', 'ADMISSION'].map(type => (
                     <button
                       key={type}
                       onClick={() => setAuditFilterType(type)}
