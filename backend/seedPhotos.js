@@ -6,12 +6,21 @@ const Doctor = require('./models/Doctor');
 const Patient = require('./models/Patient');
 
 const DOCTOR_PHOTOS = {
-  'DR-GEN-01': 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80',
-  'DR-CARD-01': 'https://images.unsplash.com/photo-1594824813580-c11929d5b0d0?w=300&auto=format&fit=crop&q=80',
-  'DR-ORTH-01': 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&auto=format&fit=crop&q=80',
-  'DR-PULM-01': 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&auto=format&fit=crop&q=80',
-  'DR-NEPH-01': 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=300&auto=format&fit=crop&q=80',
-  'DR-SURG-01': 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=300&auto=format&fit=crop&q=80'
+  'DR-GEN-01': 'https://randomuser.me/api/portraits/men/32.jpg',
+  'DR-GEN-02': 'https://randomuser.me/api/portraits/women/44.jpg',
+  'DR-GEN-03': 'https://randomuser.me/api/portraits/men/11.jpg',
+  'DR-GEN-04': 'https://randomuser.me/api/portraits/women/21.jpg',
+  'DR-GEN-05': 'https://randomuser.me/api/portraits/men/75.jpg',
+  'DR-CARD-01': 'https://randomuser.me/api/portraits/men/52.jpg',
+  'DR-CARD-02': 'https://randomuser.me/api/portraits/women/65.jpg',
+  'DR-ORTHO-01': 'https://randomuser.me/api/portraits/men/41.jpg',
+  'DR-ORTHO-02': 'https://randomuser.me/api/portraits/women/33.jpg',
+  'DR-PULM-01': 'https://randomuser.me/api/portraits/men/22.jpg',
+  'DR-PULM-02': 'https://randomuser.me/api/portraits/women/12.jpg',
+  'DR-NEPH-01': 'https://randomuser.me/api/portraits/men/64.jpg',
+  'DR-NEPH-02': 'https://randomuser.me/api/portraits/women/68.jpg',
+  'DR-SURG-01': 'https://randomuser.me/api/portraits/men/7.jpg',
+  'DR-SURG-02': 'https://randomuser.me/api/portraits/women/8.jpg'
 };
 
 const DEFAULT_PATIENT_PHOTOS = [
@@ -28,16 +37,14 @@ async function seedPhotos() {
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB for photo seeding...');
 
-    // 1. Seed Doctor Photos
     const doctors = await Doctor.find();
     for (let doc of doctors) {
-      const photo = DOCTOR_PHOTOS[doc.doctorId] || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=300&auto=format&fit=crop&q=80';
+      const photo = DOCTOR_PHOTOS[doc.doctorId] || `https://i.pravatar.cc/300?u=${encodeURIComponent(doc.doctorId)}`;
       doc.photoUrl = photo;
       await doc.save();
       console.log(`Updated photo for Doctor: ${doc.name} (${doc.doctorId})`);
     }
 
-    // 2. Seed Patient Photos
     const patients = await Patient.find();
     let idx = 0;
     for (let pat of patients) {

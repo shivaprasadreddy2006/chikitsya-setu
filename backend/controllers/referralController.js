@@ -39,11 +39,17 @@ exports.createReferral = async (req, res) => {
         });
         await newReferral.save();
 
-        // Automatically transfer patient to the specialist doctor's active waiting queue!
+        const existingPatient = await Patient.findOne({ patientId });
+        const originalDoctorId = existingPatient?.originalDoctorId || fromDoctorId || existingPatient?.assignedDoctorId;
+
+        // Specialist becomes current queue owner; original doctor is preserved so their page still lists this patient.
         const updatedPatient = await Patient.findOneAndUpdate(
             { patientId },
-            { 
+            {
+                originalDoctorId,
                 assignedDoctorId: targetDoctor.doctorId,
+                referredToDoctorId: targetDoctor.doctorId,
+                referredFromDoctorId: fromDoctorId || existingPatient?.assignedDoctorId,
                 currentStatus: 'WAITING_FOR_DOCTOR'
             },
             { new: true }

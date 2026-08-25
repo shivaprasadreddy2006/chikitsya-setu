@@ -63,8 +63,23 @@ const patientSchema = new mongoose.Schema({
         ]
     },
     
-    // Doctor assigned
+    // Doctor assigned (current treating / queue owner)
     assignedDoctorId: {
+        type: String,
+        ref: 'Doctor'
+    },
+
+    // First doctor who received the patient at OPD — kept after referrals
+    originalDoctorId: {
+        type: String,
+        ref: 'Doctor'
+    },
+
+    referredToDoctorId: {
+        type: String,
+        ref: 'Doctor'
+    },
+    referredFromDoctorId: {
         type: String,
         ref: 'Doctor'
     },

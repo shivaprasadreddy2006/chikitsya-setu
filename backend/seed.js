@@ -23,31 +23,31 @@ async function seedDatabase() {
         // 15 Default Doctors across 6 Departments (Ready on shift with 0 queues)
         const doctors = [
             // General Medicine (5 Doctors)
-            { doctorId: 'DR-GEN-01', name: 'Dr. Ramesh Sharma', department: 'General Medicine', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-GEN-02', name: 'Dr. Priya Verma', department: 'General Medicine', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-GEN-03', name: 'Dr. Anil Reddy', department: 'General Medicine', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-GEN-04', name: 'Dr. Sunita Rao', department: 'General Medicine', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-GEN-05', name: 'Dr. Rajesh Gupta', department: 'General Medicine', isOnShift: false, currentQueueCount: 0 },
+            { doctorId: 'DR-GEN-01', name: 'Dr. Ramesh Sharma', department: 'General Medicine', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/32.jpg' },
+            { doctorId: 'DR-GEN-02', name: 'Dr. Priya Verma', department: 'General Medicine', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/women/44.jpg' },
+            { doctorId: 'DR-GEN-03', name: 'Dr. Anil Reddy', department: 'General Medicine', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/11.jpg' },
+            { doctorId: 'DR-GEN-04', name: 'Dr. Sunita Rao', department: 'General Medicine', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/women/21.jpg' },
+            { doctorId: 'DR-GEN-05', name: 'Dr. Rajesh Gupta', department: 'General Medicine', isOnShift: false, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/75.jpg' },
 
             // Cardiology (2 Doctors)
-            { doctorId: 'DR-CARD-01', name: 'Dr. Vikram Malhotra', department: 'Cardiology', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-CARD-02', name: 'Dr. Sneha Kulkarni', department: 'Cardiology', isOnShift: true, currentQueueCount: 0 },
+            { doctorId: 'DR-CARD-01', name: 'Dr. Vikram Malhotra', department: 'Cardiology', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/52.jpg' },
+            { doctorId: 'DR-CARD-02', name: 'Dr. Sneha Kulkarni', department: 'Cardiology', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/women/65.jpg' },
 
             // Orthopedics (2 Doctors)
-            { doctorId: 'DR-ORTHO-01', name: 'Dr. Suresh Patel', department: 'Orthopedics', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-ORTHO-02', name: 'Dr. Meera Nambiar', department: 'Orthopedics', isOnShift: true, currentQueueCount: 0 },
+            { doctorId: 'DR-ORTHO-01', name: 'Dr. Suresh Patel', department: 'Orthopedics', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/41.jpg' },
+            { doctorId: 'DR-ORTHO-02', name: 'Dr. Meera Nambiar', department: 'Orthopedics', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/women/33.jpg' },
 
             // Pulmonology (2 Doctors)
-            { doctorId: 'DR-PULM-01', name: 'Dr. Arvind Joshi', department: 'Pulmonology', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-PULM-02', name: 'Dr. Kavita Nair', department: 'Pulmonology', isOnShift: true, currentQueueCount: 0 },
+            { doctorId: 'DR-PULM-01', name: 'Dr. Arvind Joshi', department: 'Pulmonology', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/22.jpg' },
+            { doctorId: 'DR-PULM-02', name: 'Dr. Kavita Nair', department: 'Pulmonology', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/women/12.jpg' },
 
             // Nephrology / Kidney (2 Doctors)
-            { doctorId: 'DR-NEPH-01', name: 'Dr. Manoj Deshmukh', department: 'Nephrology', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-NEPH-02', name: 'Dr. Pooja Hegde', department: 'Nephrology', isOnShift: true, currentQueueCount: 0 },
+            { doctorId: 'DR-NEPH-01', name: 'Dr. Manoj Deshmukh', department: 'Nephrology', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/64.jpg' },
+            { doctorId: 'DR-NEPH-02', name: 'Dr. Pooja Hegde', department: 'Nephrology', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/women/68.jpg' },
 
             // General Surgery (2 Doctors)
-            { doctorId: 'DR-SURG-01', name: 'Dr. Deepak Choudhary', department: 'General Surgery', isOnShift: true, currentQueueCount: 0 },
-            { doctorId: 'DR-SURG-02', name: 'Dr. Swati Sen', department: 'General Surgery', isOnShift: true, currentQueueCount: 0 }
+            { doctorId: 'DR-SURG-01', name: 'Dr. Deepak Choudhary', department: 'General Surgery', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/men/7.jpg' },
+            { doctorId: 'DR-SURG-02', name: 'Dr. Swati Sen', department: 'General Surgery', isOnShift: true, currentQueueCount: 0, photoUrl: 'https://randomuser.me/api/portraits/women/8.jpg' }
         ];
 
         await Doctor.insertMany(doctors);

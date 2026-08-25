@@ -1,5 +1,6 @@
 const Prescription = require('../models/Prescription');
 const Doctor = require('../models/Doctor');
+const Patient = require('../models/Patient');
 
 // 1. Get all pending prescriptions for pharmacy queue
 exports.getPrescriptions = async (req, res) => {
@@ -29,6 +30,11 @@ exports.createPrescription = async (req, res) => {
             notes: notes || 'Take prescribed medicines with warm water after meals.'
         });
         await newPrescription.save();
+
+        await Patient.findOneAndUpdate(
+            { patientId },
+            { currentStatus: 'PHARMACY_QUEUE' }
+        );
 
         res.status(201).json({
             message: `Prescription created by ${docName} (${docDept}) and dispatched to Pharmacy Counter #3!`,
